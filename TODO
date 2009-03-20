@@ -1,3 +1,2 @@
 Javadoc
-Eliminate the ConnectionHandler Thread in MxSelectingReceivePort when explicit receive is used
 Make a README

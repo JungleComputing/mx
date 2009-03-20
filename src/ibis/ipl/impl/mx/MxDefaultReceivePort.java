@@ -231,7 +231,6 @@ class MxDefaultReceivePort extends MxReceivePort {
     void accept(ConnectionRequest req, SendPortIdentifier origin, PortType sp) {
     	int result = connectionAllowed(origin, sp);
     	
-    	//TODO set reply message
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(baos);        
         try {
@@ -262,15 +261,25 @@ class MxDefaultReceivePort extends MxReceivePort {
 	                    }
 					} catch (IOException e) {
 						result = DENIED;
+						if (logger.isDebugEnabled()) {
+        	                logger.debug("DENIED: " + e.getMessage());
+        	            }
+						try {
+							is.close();
+						} catch (IOException e1) {
+							// ignore
+						}
+						
+						
 						//TODO set error message
 						this.lostConnection(origin, e);
 					}
 	            }
-	        	/*
+	        	
 	        	if (logger.isDebugEnabled()) {
 	                logger.debug("--> S RP = " + name + ": "
 	                        + ReceivePort.getString(result));
-	            }*/
+	            }
     		}
     	} else {  		
             req.reject();
