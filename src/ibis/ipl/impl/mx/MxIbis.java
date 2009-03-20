@@ -1,0 +1,292 @@
+
+package ibis.ipl.impl.mx;
+
+import ibis.ipl.AlreadyConnectedException;
+import ibis.ipl.CapabilitySet;
+import ibis.ipl.ConnectionRefusedException;
+import ibis.ipl.ConnectionTimedOutException;
+import ibis.ipl.IbisCapabilities;
+import ibis.ipl.IbisStarter;
+import ibis.ipl.MessageUpcall;
+import ibis.ipl.PortMismatchException;
+import ibis.ipl.PortType;
+import ibis.ipl.ReceivePortConnectUpcall;
+import ibis.ipl.RegistryEventHandler;
+import ibis.ipl.SendPortDisconnectUpcall;
+import ibis.ipl.impl.IbisIdentifier;
+import ibis.ipl.impl.ReceivePort;
+import ibis.ipl.impl.SendPort;
+import ibis.ipl.impl.SendPortIdentifier;
+import ibis.ipl.registry.Credentials;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.SocketTimeoutException;
+import java.util.HashMap;
+import java.util.Properties;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import mxio.Connection;
+import mxio.ConnectionRequest;
+import mxio.MxAddress;
+import mxio.MxListener;
+import mxio.MxSocket;
+import mxio.OutputStream;
+
+public final class MxIbis extends ibis.ipl.impl.Ibis 
+implements MxListener {
+
+	static final Logger logger = LoggerFactory
+	.getLogger(MxIbis.class);
+
+	private MxSocket socket;
+
+	private MxAddress myAddress;
+
+	private HashMap<ibis.ipl.IbisIdentifier, MxAddress> addresses
+	= new HashMap<ibis.ipl.IbisIdentifier, MxAddress>();
+
+
+	public MxIbis(RegistryEventHandler registryEventHandler,
+			IbisCapabilities capabilities, Credentials credentials,
+			PortType[] types, Properties userProperties, IbisStarter starter) {
+		super(registryEventHandler, capabilities, credentials, types,
+				userProperties, starter);
+
+		this.properties.checkProperties("ibis.ipl.impl.mx.",
+				new String[] {"ibis.ipl.impl.mx.mx"}, null, true);
+
+	}
+
+	protected byte[] getData() throws IOException {
+		socket = new MxSocket(this);
+		myAddress = socket.getMyAddress();
+
+		if (logger.isInfoEnabled()) {
+			logger.info("--> MxIbis: address = " + myAddress);
+		}
+
+		return myAddress.toBytes();
+	}
+
+	/*
+	 * // NOTE: this is wrong ? Even though the ibis has left, the
+	 * IbisIdentifier may still be floating around in the system... We should
+	 * just have some timeout on the cache entries instead...
+	 * 
+	 * public void left(ibis.ipl.IbisIdentifier id) { super.left(id);
+	 * synchronized(addresses) { addresses.remove(id); } }
+	 * 
+	 * public void died(ibis.ipl.IbisIdentifier id) { super.died(id);
+	 * synchronized(addresses) { addresses.remove(id); } }
+	 */
+
+	OutputStream connect(MxSendPort sp, ibis.ipl.impl.ReceivePortIdentifier rip,
+			int timeout, boolean fillTimeout) throws IOException {
+
+		IbisIdentifier id = (IbisIdentifier) rip.ibisIdentifier();
+		String name = rip.name();
+		MxAddress addr;
+
+		synchronized(addresses) {
+			addr = addresses.get(id);
+			if (addr == null) {
+				addr = MxAddress.fromBytes(id.getImplementationData());
+				addresses.put(id, addr);
+			}
+		}
+		
+		long startTime = System.currentTimeMillis();
+
+		if (logger.isDebugEnabled()) {
+			logger.debug("--> Creating socket for connection to " + name
+					+ " at " + addr);
+		}
+
+		PortType sendPortType = sp.getPortType();
+
+		do {         
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			DataOutputStream out = new DataOutputStream(baos);
+			out.writeUTF(name);
+			sp.getIdent().writeTo(out);
+			sendPortType.writeTo(out);
+			out.flush();
+			Connection c = socket.connect(addr, baos.toByteArray(), timeout);
+
+			ByteArrayInputStream bais = new ByteArrayInputStream(c.getReplyMessage());
+			DataInputStream in = new DataInputStream(bais);
+			OutputStream os;
+
+
+			int result = in.readInt();
+
+			try {
+				switch(result) {
+				case ReceivePort.ACCEPTED:
+					if(c.getReply() == Connection.ACCEPT) {
+						os = c.getOutputStream();
+					} else {
+						//FIXME error
+						os = null;
+					}
+					return os;
+				case ReceivePort.ALREADY_CONNECTED:
+					throw new AlreadyConnectedException("Already connected", rip);
+				case ReceivePort.TYPE_MISMATCH:
+					// Read receiveport type from input, to produce a
+					// better error message.
+					PortType rtp = new PortType(in);
+					CapabilitySet s1 = rtp.unmatchedCapabilities(sendPortType);
+					CapabilitySet s2 = sendPortType.unmatchedCapabilities(rtp);
+					String message = "";
+					if (s1.size() != 0) {
+						message = message
+						+ "\nUnmatched receiveport capabilities: "
+						+ s1.toString() + ".";
+					}
+					if (s2.size() != 0) {
+						message = message
+						+ "\nUnmatched sendport capabilities: "
+						+ s2.toString() + ".";
+					}
+					throw new PortMismatchException(
+							"Cannot connect ports of different port types."
+							+ message, rip);
+				case ReceivePort.DENIED:
+					throw new ConnectionRefusedException(
+							"Receiver denied connection", rip);
+				case ReceivePort.NO_MANY_TO_X:
+					throw new ConnectionRefusedException(
+							"Receiver already has a connection and neither ManyToOne nor ManyToMany "
+							+ "is set", rip);
+				case ReceivePort.NOT_PRESENT:
+				case ReceivePort.DISABLED:
+					// and try again if we did not reach the timeout...
+					if (timeout > 0 && System.currentTimeMillis()
+							> startTime + timeout) {
+						throw new ConnectionTimedOutException(
+								"Could not connect", rip);
+					}
+					break;
+				case -1:
+					throw new IOException("Encountered EOF in MxIbis.connect");
+				default:
+					throw new IOException("Illegal opcode in MxIbis.connect");
+				}
+			} catch(SocketTimeoutException e) {
+				throw new ConnectionTimedOutException("Could not connect", rip);
+			} finally {
+				if (result != ReceivePort.ACCEPTED) {
+					try {
+						out.close();
+					} catch(Throwable e) {
+						// ignored
+					}
+				}
+			}
+			if(fillTimeout) {
+				try {
+					Thread.sleep(100);
+				} catch (InterruptedException e) {
+					// ignore
+				}
+			}
+		} while (true);
+	}
+
+	protected synchronized void quit() {
+		cleanup();
+	}
+
+	public void newConnection(ConnectionRequest request) {
+		if (logger.isDebugEnabled()) {
+			logger.debug("--> MxIbis got connection request from " + request.getSourceAddress());
+		}
+		ByteArrayInputStream bais = new ByteArrayInputStream(request.getDescriptor());
+		DataInputStream in = new DataInputStream(bais);
+		try {
+			in.close();
+		} catch (IOException e) {
+			// ignore
+		}
+
+		String name;
+		SendPortIdentifier send;
+		PortType sp;	
+		try {
+			name = in.readUTF();
+			send = new SendPortIdentifier(in);
+			sp = new PortType(in);	
+		} catch (IOException e) {
+			//TODO something
+			e.printStackTrace();
+			request.reject();
+			return;
+		}
+
+		// First, lookup receiveport.
+		MxReceivePort rp = (MxReceivePort) findReceivePort(name);
+
+		int result;
+		if (rp == null) {
+			result = ReceivePort.NOT_PRESENT;
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			DataOutputStream out = new DataOutputStream(baos);
+			try {
+				out.writeInt(result);
+				out.flush();
+			} catch (IOException e) {
+				e.printStackTrace();
+				throw new Error("error creating connection reply");
+			}
+
+			request.setReplyMessage(baos.toByteArray());
+			request.reject();
+			try {
+				out.close();
+				in.close();
+			} catch (IOException e) {
+				// ignore
+			}
+			if (logger.isDebugEnabled()) {
+				logger.debug("newConnectionRequest() finished");
+			}
+		} else { 
+			rp.accept(request, send, sp);
+		}
+	}
+
+
+
+	private void cleanup() {
+		try {
+			socket.close();
+		} catch (Throwable e) {
+			// Ignore
+		}
+	}
+
+	protected SendPort doCreateSendPort(PortType tp, String nm,
+			SendPortDisconnectUpcall cU, Properties props) throws IOException {
+//		return new MxSplitterSendPort(this, tp, nm, cU, props);
+		return new MxMulticastSendPort(this, tp, nm, cU, props);
+		
+	}
+
+	protected ReceivePort doCreateReceivePort(PortType tp, String nm,
+			MessageUpcall u, ReceivePortConnectUpcall cU, Properties props)
+	throws IOException {
+		if(tp.hasCapability(PortType.CONNECTION_ONE_TO_ONE) || tp.hasCapability(PortType.CONNECTION_ONE_TO_MANY)) {
+			return new MxDefaultReceivePort(this, tp, nm, u, cU, props);
+		} else {
+			return new MxSelectingReceivePort(this, tp, nm, u, cU, props);	
+		}
+	}
+
+}
