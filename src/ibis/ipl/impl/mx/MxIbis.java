@@ -144,9 +144,6 @@ implements MxListener {
 			}
 			OutputStream os;
 
-
-			
-
 			try {
 				switch(result) {
 				case ReceivePort.ACCEPTED:

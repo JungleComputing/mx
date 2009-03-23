@@ -180,8 +180,10 @@ final class JavaMx {
 				}
 			} else {
 				//TODO choose nice values here
-				handles = new HandleManager(128, 128*1024);
-				links = new LinkManager(128, 128*1024);
+				//FIXME first argument of 128 for both resulted in errors on 80 nodes
+				// Something wrong in mem management???
+				handles = new HandleManager(1024, 128*1024);
+				links = new LinkManager(512, 2*1024);
 			}
 		} catch (Throwable e) {
 			if (logger.isDebugEnabled()) {
