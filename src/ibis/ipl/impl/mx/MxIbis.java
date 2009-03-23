@@ -3,6 +3,7 @@ package ibis.ipl.impl.mx;
 
 import ibis.ipl.AlreadyConnectedException;
 import ibis.ipl.CapabilitySet;
+import ibis.ipl.ConnectionFailedException;
 import ibis.ipl.ConnectionRefusedException;
 import ibis.ipl.ConnectionTimedOutException;
 import ibis.ipl.IbisCapabilities;
@@ -118,6 +119,13 @@ implements MxListener {
 			sendPortType.writeTo(out);
 			out.flush();
 			Connection c = socket.connect(addr, baos.toByteArray(), timeout);
+			if(c == null) {
+				if(timeout > 0) {
+					throw new ConnectionTimedOutException("MX Socket timed out", rip);
+				} else {
+					throw new ConnectionFailedException("MX Socket could not connect to remote socket", rip);
+				}
+			}
 
 			ByteArrayInputStream bais = new ByteArrayInputStream(c.getReplyMessage());
 			DataInputStream in = new DataInputStream(bais);
