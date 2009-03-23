@@ -126,13 +126,26 @@ implements MxListener {
 					throw new ConnectionFailedException("MX Socket could not connect to remote socket", rip);
 				}
 			}
-
-			ByteArrayInputStream bais = new ByteArrayInputStream(c.getReplyMessage());
-			DataInputStream in = new DataInputStream(bais);
+			
+			int result = ReceivePort.DENIED;
+			DataInputStream in = null;
+			byte[] replyMsg = c.getReplyMessage();
+			if(replyMsg != null) {
+				ByteArrayInputStream bais = new ByteArrayInputStream(c.getReplyMessage());
+				in = new DataInputStream(bais);
+				result = in.readInt();
+			} else { //replyMsg == null
+				if (c.getReply() == Connection.ACCEPT) {
+					c.getOutputStream().close();
+					throw new ConnectionFailedException("Invalid connection reply message", rip);
+				} else {
+					throw new ConnectionRefusedException("connection refused, reply message is missing", rip);
+				}				
+			}
 			OutputStream os;
 
 
-			int result = in.readInt();
+			
 
 			try {
 				switch(result) {
