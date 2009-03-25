@@ -12,7 +12,7 @@ JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_00024HandleManager_init
 	hmBlocks = maxBlocks;
 	hmBlockSize = blockSize;
 	hmBlocksInUse = 0;
-	handles = (mx_request_t **) calloc(hmBlocks, sizeof(mx_request_t *));
+	handles = (mx_request_t **) malloc(hmBlocks * sizeof(mx_request_t *));
 	if (handles == NULL) {
 		return JNI_FALSE;
 	}
@@ -41,6 +41,6 @@ mx_request_t *getRequest(jint handle) {
 	if(block > hmBlocksInUse) {
 		return NULL;
 	}
-	return &(handles[(int)block][(int)offset]);
+	return &(handles[block][offset]);
 }
 

@@ -42,6 +42,9 @@ final class JavaMx {
 		protected synchronized int getHandle() {
 			if(activeHandles == size) {
 				//Size up handle array, also in C code
+				if (logger.isDebugEnabled()) {
+					logger.debug("adding block...");
+				}
 				if(addBlock() == false) {
 					//TODO exception
 					System.exit(1);
@@ -122,6 +125,9 @@ final class JavaMx {
 		protected synchronized int getLink() {
 			if(activeTargets == size) {
 				//Size up target array, also in C code
+				if (logger.isDebugEnabled()) {
+					logger.debug("adding block...");
+				}
 				if(addBlock() == false) {
 					//TODO exception
 					System.exit(1);
@@ -182,8 +188,8 @@ final class JavaMx {
 				//TODO choose nice values here
 				//FIXME first argument of 128 for both resulted in errors on 80 nodes
 				// Something wrong in mem management???
-				handles = new HandleManager(1024, 128*1024);
-				links = new LinkManager(512, 2*1024);
+				handles = new HandleManager(64, 1024);
+				links = new LinkManager(64, 128);
 			}
 		} catch (Throwable e) {
 			if (logger.isDebugEnabled()) {
@@ -364,8 +370,17 @@ final class JavaMx {
 	 * @return The message size, or -1 when not successful.
 	 * @throws MxException
 	 */
-	static native int test(int endpointNumber, int handle) throws MxException; // return message size by success, -1, when unsuccessful
+	static native int test(int endpointNumber, int handle) throws MxException;
 
+	/**
+	 * Tests whether a request is finished.
+	 * @param endpointNumber The local endpoint number. 
+	 * @param handle The handle of the request to test for.
+	 * @return The message size, or -1 when not successful.
+	 * @throws MxException
+	 */
+	static native int test(int endpointNumber, int handle, int attempts) throws MxException;
+	
 	/**
 	 * Probes for a new message that is ready to be received. This call returns immediately.
 	 * @param endpointNumber The local endpoint number.
@@ -419,17 +434,6 @@ final class JavaMx {
 	 * @return the matching information of the next message, or 0 (Matching.MATCH_NONE) when no message has arrived
 	 */
 	static native long pollForMessage(int endpointNumber, long matchData, long matchMask);
-
-	/**
-	 * completes the first request that is finished and matches the given matching information
-	 * @param endpointNumber endpointNumber the endpoint to work on
-	 * @param timeout The timeout in milliseconds
-	 * @param matchData The matching data. Only messages with matching data that equals this field after masking with the mask will be probed for by this request.
-	 * @param matchMask The mask applied to the matching data of the message. 
-	 * @param matchedConnection A direct ByteBuffer in which the matching information of the received message will be stored
-	 * @return the size of the received message, or -1 in case of an timeout
-	 */
-	static native int select(int endpointNumber, long timeout, long matchData, long matchMask, ByteBuffer matchedConnection);
 
 	/*
 	static void send(SendBuffer buffer, int endpointNumber, int link, int handle, long matchData) {

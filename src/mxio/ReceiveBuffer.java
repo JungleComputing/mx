@@ -155,12 +155,14 @@ final class ReceiveBuffer {
 			int msgSize = -1;
 			
 			if(poll) {
-				int i = 0;
 //				long nt = - System.nanoTime();
+				/*
+				 * int i = 0;
 				while(msgSize < 0 && i < Config.POLLS) {
 					msgSize = JavaMx.test(endpointNumber, myHandle);
 					i++;
-				}
+				}*/
+				msgSize = JavaMx.test(endpointNumber, myHandle, Config.POLLS);
 //				nt += System.nanoTime();
 //				polls +=i;
 //				ntime += nt;

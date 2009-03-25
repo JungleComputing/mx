@@ -80,14 +80,6 @@ public abstract class OutputStream extends java.io.OutputStream {
 			//huh, cannot happen. At the other hand, still nothing is wrong with this channel 
 			return;
 		}
-		try {
-			flush();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			// closedChannelExcepton?? Ignore for now
-			// e.printStackTrace();
-		}
-
 		buffer = SendBuffer.get();
 	}
 

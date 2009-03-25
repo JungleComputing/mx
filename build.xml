@@ -69,8 +69,10 @@
 
 		<!-- mxio -->
 		<!-- Create jni headers -->
-		<exec executable="javah" dir="tmp">
+		<exec executable="javah" >
 			<arg value="-jni"/>
+			<arg value="-classpath"/>
+			<arg value="tmp"/>
 			<arg value="-d"/>
 			<arg value="src/mxio"/>
 			<arg value="mxio.JavaMx"/>
@@ -146,11 +148,11 @@
     <target name="clean" description="Clean up (leaves rewritten classlibs)">
         <delete dir="tmp" />
         <delete dir="lib" />
-        <delete dir="javadoc/ipl" />
+        <!--<delete dir="javadoc/ipl" /> -->
 
-        <delete file="${sources-zip}" />
-        <delete file="ipl${version-tag}.zip" />
-		<delete file="mxio${version}.zip" />
+        <delete file="src/mxio/mxio_JavaMx_HandleManager.h" />
+        <delete file="src/mxio/mxio_JavaMx_LinkManager.h" />
+        <delete file="src/mxio/mxio_JavaMx.h" />
     </target>
 
     <target name="rewrite"

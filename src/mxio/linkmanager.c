@@ -14,7 +14,7 @@ JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_00024LinkManager_init
 	lmBlocks = maxBlocks;
 	lmBlockSize = blockSize;
 	lmBlocksInUse = 0;
-	links = (mx_endpoint_addr_t **) calloc(lmBlocks, sizeof(mx_request_t *));
+	links = (mx_endpoint_addr_t **) malloc(lmBlocks * sizeof(mx_request_t *));
 	if (links == NULL) {
 		return JNI_FALSE;
 	}
@@ -43,5 +43,5 @@ mx_endpoint_addr_t *getAddress(jint link) {
 	if(block > lmBlocksInUse) {
 		return NULL;
 	}
-	return &(links[(int)block][(int)offset]);
+	return &(links[block][offset]);
 }

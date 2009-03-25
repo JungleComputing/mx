@@ -57,7 +57,8 @@ public class MxSocket implements Runnable {
 			throw new MxException("MxSocket: could not initialize JavaMX");
 		}
 		endpointNumber = JavaMx.newEndpoint(IBIS_FILTER);
-		sendEndpointNumber = JavaMx.newEndpoint(IBIS_FILTER);
+//		sendEndpointNumber = JavaMx.newEndpoint(IBIS_FILTER);
+		sendEndpointNumber = endpointNumber;
 
 		myAddress = new MxAddress(JavaMx.getMyNicId(endpointNumber), JavaMx
 				.getMyEndpointId(endpointNumber));

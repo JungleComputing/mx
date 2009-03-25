@@ -47,11 +47,14 @@ public class OutputStreamImpl extends OutputStream {
 			SendBuffer buf = queue[head];
 			
 			int msgSize = -1;
+			/*
 			int i = 0;
 			while(msgSize < 0 && i < Config.POLLS) {
 				msgSize = JavaMx.test(endpointNumber, handles[head]);
 				i++;
 			}
+			*/
+			msgSize = JavaMx.test(endpointNumber, handles[head], Config.POLLS);
 			while(msgSize < 0) {
 				msgSize = JavaMx.wait(endpointNumber, handles[head]);
 			}
@@ -70,7 +73,7 @@ public class OutputStreamImpl extends OutputStream {
 		}
 		
 		boolean doSend(SendBuffer buffer) throws MxException {
-			if( elements == size) {
+			if(elements == size) {
 				return false;
 			}
 			

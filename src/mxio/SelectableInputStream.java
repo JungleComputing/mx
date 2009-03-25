@@ -17,7 +17,7 @@ public class SelectableInputStream extends InputStream {
 
 	private volatile boolean inSelector = false;
 
-	private Selector selector;
+	private volatile Selector selector;
 	
 	protected SelectableInputStream(MxSocket socket, MxAddress source,
 			int endpointNumber, long matchData) throws IOException {
@@ -35,9 +35,11 @@ public class SelectableInputStream extends InputStream {
 		while(true) {
 			try {
 				queue.put(buf);
-				if(selector != null && inSelector == false) {
-					inSelector = true;
-					selector.ready(this);
+				synchronized(this) {
+					if(selector != null && inSelector == false) {
+						inSelector = true;
+						selector.ready(this);
+					}
 				}
 				return;
 			} catch (InterruptedException e) {
@@ -80,7 +82,7 @@ public class SelectableInputStream extends InputStream {
 	}
 	
 	
-	protected void isSelected() {
+	protected synchronized void isSelected() {
 		selector = null;
 		inSelector = false;
 	}
@@ -92,7 +94,7 @@ public class SelectableInputStream extends InputStream {
 	}
 	
 	@Override
-	public boolean attach(Selector s) {
+	public synchronized boolean attach(Selector s) {
 		selector = s;
 		if(s == null) {
 			return false;
@@ -114,13 +116,13 @@ public class SelectableInputStream extends InputStream {
 	}
 
 	@Override
-	public void detach() {
+	public synchronized void detach() {
 		selector = null;
 		inSelector = false;
 	}
 
 	@Override
-	public void close() throws IOException {
+	public synchronized void close() throws IOException {
 		if(selector != null && inSelector == false) {
 			selector.ready(this);
 			inSelector = true;
@@ -129,7 +131,7 @@ public class SelectableInputStream extends InputStream {
 	}
 
 	@Override
-	protected void senderClosedConnection() {
+	protected synchronized void senderClosedConnection() {
 		super.senderClosedConnection();
 		// let the user find out that we are closed
 		if(selector != null && inSelector == false) {

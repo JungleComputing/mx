@@ -567,7 +567,7 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_wait__IIJ
 }
 
 /* test() */
-JNIEXPORT jint JNICALL Java_mxio_JavaMx_test
+JNIEXPORT jint JNICALL Java_mxio_JavaMx_test__II
   (JNIEnv *env, jclass jcl, jint endpointId, jint handle) {
 	mx_return_t rc;
 	mx_status_t status;
@@ -606,6 +606,53 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_test
 	
 	return (jint)(status.xfer_length); // Note: MX documentation incorrect about status structure field names, see header files instead
 }
+
+
+/* test() */
+JNIEXPORT jint JNICALL Java_mxio_JavaMx_test__III
+  (JNIEnv *env, jclass jcl, jint endpointId, jint handle, jint attempts) {
+	mx_return_t rc;
+	mx_status_t status;
+	uint32_t result;
+jint i;
+
+	mx_request_t *request;
+	
+	if(endpointId < 0 || endpointId >= MAX_ENDPOINTS || endpoints[endpointId] == NULL) {
+		// not a valid endpoint
+		throwException(env, "Invalid Endpoint");
+		return -1;
+	}
+	//fprintf(stderr, "JavaMx::test: waiting for handle %d\n", handle);
+	//fflush(stderr);
+	/* retrieve the request handle */
+	request = getRequest(handle);
+	if(request == NULL) {
+		//no valid handle
+		throwException(env, "Invalid Handle");
+		return -1;
+	}
+	
+	for(i = 0; i < attempts; i++) {
+		rc = mx_test(endpoints[endpointId], request, &status, &result);
+		if(rc != MX_SUCCESS) {
+			throwException(env, mx_strerror(rc));
+			return -1;
+		}
+		if (result != 0) {
+			// Request is finished
+			if(status.code != MX_STATUS_SUCCESS) {
+				throwException(env, mx_strstatus(rc));
+				return -1;
+			}
+			return (jint)(status.xfer_length); // Note: MX documentation incorrect about status structure field names, see header files instead
+		}
+	}
+
+	// message is not finished yet
+	return -1;
+}
+
 
 /* iprobe() */
 JNIEXPORT jint JNICALL Java_mxio_JavaMx_iprobe
@@ -769,43 +816,5 @@ JNIEXPORT jlong JNICALL Java_mxio_JavaMx_pollForMessage
 	return status.match_info;
 }
 
-/* select()  */
-JNIEXPORT jint JNICALL Java_mx_channels_JavaMx_select
-  (JNIEnv *env, jclass jcl, jint endpointId, jlong timeout, jlong matchData, jlong matchMask, jobject matchedConnection) {
-	mx_return_t rc;
-	mx_status_t status;
-	uint32_t result;
 
-	
-	jlong *matchedConn = (*env)->GetDirectBufferAddress(env, matchedConnection);
-	
-	if(endpointId < 0 || endpointId >= MAX_ENDPOINTS || endpoints[endpointId] == NULL) {
-		// not a valid endpoint
-		throwException(env, "Invalid Endpoint");
-		return -1;
-	}
-
-	
-	//fprintf(stderr, "JavaMx::wait: waiting for handle %d\n", handle);
-	rc = mx_wait_any(endpoints[endpointId], (uint32_t)timeout, matchData, matchMask, &status, &result);
-	if(rc != MX_SUCCESS) {
-		throwException(env, mx_strerror(rc));
-		return -1;
-	}
-	if (result == 0) {
-		// Request is not finished yet
-		return -1;
-	}
-	
-	// TODO this block of code doesn't look coorrect to me
-	if(status.code != MX_STATUS_SUCCESS) {
-		// some kind of error occured
-		throwException(env, mx_strstatus(status.code));
-		return -1;
-	}
-	
-	*matchedConn = status.match_info;
-	return (jint)(status.xfer_length); // Note: MX documentation incorrect about status structure field names, see header files instead
-	  
-}
 

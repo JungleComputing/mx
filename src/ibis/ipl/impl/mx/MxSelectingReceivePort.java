@@ -2,6 +2,7 @@
 package ibis.ipl.impl.mx;
 
 import ibis.io.BufferedArrayInputStream;
+import ibis.io.Conversion;
 import ibis.ipl.MessageUpcall;
 import ibis.ipl.PortType;
 import ibis.ipl.ReceivePortConnectUpcall;
@@ -10,6 +11,7 @@ import ibis.ipl.impl.Ibis;
 import ibis.ipl.impl.ReadMessage;
 import ibis.ipl.impl.ReceivePort;
 import ibis.ipl.impl.ReceivePortConnectionInfo;
+import ibis.ipl.impl.ReceivePortIdentifier;
 import ibis.ipl.impl.SendPortIdentifier;
 import ibis.ipl.impl.mx.MxDefaultReceivePort.ConnectionHandler;
 import ibis.util.ThreadPool;
@@ -93,14 +95,16 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 			}
 			switch (opcode) {
 			case -1:
-				// in closed
-				if (logger.isDebugEnabled()) {
-					logger.debug(name
-							+ ": inputstream closed from "
-							+ origin);
-				}
-				close(null);
-				return true;
+            	// in closed
+                if (logger.isDebugEnabled()) {
+                    logger.debug(name
+                            + ": inputstream closed unexpectedly: "
+                            + origin);
+                }
+                close(new IOException(name
+                        + ": inputstream closed unexpectedly: "
+                        + origin));
+                return true;
 			case NEW_RECEIVER:
 				if (logger.isDebugEnabled()) {
 					logger.debug(name + ": Got a NEW_RECEIVER from "
@@ -137,6 +141,36 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 					throw new IOException("cannot attach stream to selector");
 				}
 				break;
+			case CLOSE_ALL_CONNECTIONS:
+                if (logger.isDebugEnabled()) {
+                    logger.debug(name
+                            + ": Got a CLOSE_ALL_CONNECTIONS from "
+                            + origin);
+                }
+                close(null);
+                return true;
+            case CLOSE_ONE_CONNECTION:
+                if (logger.isDebugEnabled()) {
+                    logger.debug(name + ": Got a CLOSE_ONE_CONNECTION from "
+                            + origin);
+                }
+                // read the receiveport identifier from which the sendport
+                // disconnects.
+                byte[] length = new byte[Conversion.INT_SIZE];
+                in.readArray(length);
+                byte[] bytes = new byte[Conversion.defaultConversion
+                        .byte2int(length, 0)];
+                in.readArray(bytes);
+                ReceivePortIdentifier identifier
+                        = new ReceivePortIdentifier(bytes);
+                if (ident.equals(identifier)) {
+                    // Sendport is disconnecting from me.
+                    if (logger.isDebugEnabled()) {
+                        logger.debug(name + ": disconnect from " + origin);
+                    }
+                    close(null);
+                }
+                break;
 			default:
 				if (is.attach(selector) == false) {	
 					throw new IOException("cannot attach stream to selector");

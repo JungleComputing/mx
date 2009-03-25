@@ -19,8 +19,8 @@ public final class DeliveryThread implements Runnable, Config {
 	int endpointNumber;
 	MxSocket socket;
 	
-	private static long SELECTABLEMASK = Matching.construct(Matching.PROTOCOL_MASK, Matching.getPort(Matching.SELECTABLEPORTS)); 
-	private static long SELECTABLEDATA = Matching.construct(Matching.PROTOCOL_DATA, Matching.getPort(Matching.SELECTABLEPORTS));
+	private static long SELECTABLEMASK = Matching.construct(Matching.PROTOCOL_MASK, Matching.getPort(Matching.SELECTABLEPORTS_MASK)); 
+	private static long SELECTABLEDATA = Matching.construct(Matching.PROTOCOL_DATA, Matching.getPort(Matching.SELECTABLEPORTS_MASK));
 	
 	boolean open = true;
 	

@@ -302,6 +302,7 @@ implements MxListener {
 	throws IOException {
 		if(tp.hasCapability(PortType.CONNECTION_ONE_TO_ONE) || tp.hasCapability(PortType.CONNECTION_ONE_TO_MANY)) {
 			return new MxDefaultReceivePort(this, tp, nm, u, cU, props);
+//			return new MxSelectingReceivePort(this, tp, nm, u, cU, props);
 		} else {
 			return new MxSelectingReceivePort(this, tp, nm, u, cU, props);	
 		}

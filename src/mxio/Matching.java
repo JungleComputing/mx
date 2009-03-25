@@ -20,7 +20,7 @@ final class Matching {
 	static final long MASK_ALL =                     0xFFFFFFFFFFFFFFFFL;
 	static final long NONE =                         0x0000000000000000L;
 	
-	static final long SELECTABLEPORTS =              setPort(NONE, 1); //uneven port numbers
+	static final long SELECTABLEPORTS_MASK =              setPort(NONE, 1); //uneven port numbers
 
 
 	static long construct(long protocol, int port) {
