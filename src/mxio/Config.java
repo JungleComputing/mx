@@ -24,5 +24,5 @@ interface Config {
 	static final int FLUSH_QUEUE_SIZE = 8;
 	
 	/** Amount of poll before a blocking call to complete a request **/ 
-	static final int POLLS = 2000 ; // 5 polls per micro? probably less
+	static final int POLLS = 1000 ; // 5 polls per micro? probably less
 }
