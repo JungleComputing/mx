@@ -13,6 +13,8 @@ public abstract class InputStream extends java.io.InputStream {
 	private static final Logger logger = LoggerFactory
     .getLogger(InputStream.class);
 	
+	public static final int BUFFER_SIZE = mxio.Config.BUFFER_SIZE;
+	
 	protected boolean closed = false;
 	protected boolean senderClosed = false;
 

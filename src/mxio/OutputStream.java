@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 public abstract class OutputStream extends java.io.OutputStream {
 	//FIXME prepare for use in multicastStream
+	public static final int BUFFER_SIZE = mxio.Config.BUFFER_SIZE;
 	
 	private static final Logger logger = LoggerFactory
     .getLogger(OutputStream.class);
