@@ -7,6 +7,9 @@ import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,14 +17,14 @@ import org.slf4j.LoggerFactory;
 public class MxSocket implements Runnable {
 
 	private static final Logger logger = LoggerFactory
-    .getLogger(MxSocket.class);
+	.getLogger(MxSocket.class);
 
 	private static final int IBIS_FILTER = 0xdada1313;
 	private static final long POLL_FOR_CLOSE_INTERVAL = 500;
-	
+
 	protected static final int MAX_CONNECT_MSG_SIZE = 2048 + MxAddress.SIZE;
 	// TODO limit on CONNECT message size, document this
-	
+
 	protected static final int MAX_CONNECT_REPLY_MSG_SIZE = MAX_CONNECT_MSG_SIZE - 5;
 	// listenBuf - int - byte;
 
@@ -30,12 +33,14 @@ public class MxSocket implements Runnable {
 	}
 
 	private MxAddress myAddress;
-	
+
+	private ConcurrentSkipListMap<MxAddress, Integer> links;
+
 	/** LowLatency Streams get even numbers, Selectable streams get odd numbers **/
-	private ConcurrentHashMap<Integer, SelectableInputStream> selectableInputStreams;
-	private ConcurrentHashMap<Integer, LowLatencyInputStream> lowLatencyInputStreams;
-	private ConcurrentHashMap<String, OutputStreamImpl> outputStreams;
-	
+	private ConcurrentHashMap<Integer, SelectableDataInputStream> selectableDataInputStreams;
+	private ConcurrentHashMap<Integer, LowLatencyDataInputStream> lowLatencyDataInputStreams;
+	private ConcurrentHashMap<String, DataOutputStreamImpl> dataOutputStreams;
+
 	private int nextsKey = 1;
 	private int nextllKey = 2;
 	private MxListener listener = null;
@@ -43,22 +48,25 @@ public class MxSocket implements Runnable {
 	private int endpointNumber;
 	private int sendEndpointNumber;
 	private ByteBuffer listenBuf, connectBuf;
-	private int listenHandle, connectHandle;
+	private int listenHandle, connectHandle, ackHandle;
+	
+	private ReentrantLock ackLock = new ReentrantLock();
+	private volatile boolean ackInTransfer = false;
 
 	DeliveryThread deliveryThread = null;
-	
+
 	public MxSocket(MxListener listener) throws MxException {
 		if (listener == null) {
 			throw new MxException("no listener");
 		}
 		this.listener = listener;
-		
+
 		if (JavaMx.initialized == false) {
 			throw new MxException("MxSocket: could not initialize JavaMX");
 		}
 		endpointNumber = JavaMx.newEndpoint(IBIS_FILTER);
 		sendEndpointNumber = JavaMx.newEndpoint(IBIS_FILTER);
-//		sendEndpointNumber = endpointNumber;
+		//		sendEndpointNumber = endpointNumber;
 
 		myAddress = new MxAddress(JavaMx.getMyNicId(endpointNumber), JavaMx
 				.getMyEndpointId(endpointNumber));
@@ -69,19 +77,22 @@ public class MxSocket implements Runnable {
 		connectBuf = ByteBuffer.allocateDirect(MAX_CONNECT_MSG_SIZE).order(
 				ByteOrder.BIG_ENDIAN);
 		connectHandle = JavaMx.handles.getHandle();
+		ackHandle = JavaMx.handles.getHandle();
 
-		selectableInputStreams = new ConcurrentHashMap<Integer, SelectableInputStream>();
-		lowLatencyInputStreams = new ConcurrentHashMap<Integer, LowLatencyInputStream>();
-		outputStreams = new ConcurrentHashMap<String, OutputStreamImpl>();
+		links  = new ConcurrentSkipListMap<MxAddress, Integer>();
+		
+		selectableDataInputStreams = new ConcurrentHashMap<Integer, SelectableDataInputStream>();
+		lowLatencyDataInputStreams = new ConcurrentHashMap<Integer, LowLatencyDataInputStream>();
+		dataOutputStreams = new ConcurrentHashMap<String, DataOutputStreamImpl>();
 
 		ThreadPool.createNew(this, "MxSocket " + endpointNumber + " - "
 				+ sendEndpointNumber);
 
 
 	}
-	
+
 	public Connection connect(MxAddress target, byte[] descriptor, long timeout) 
-		throws MxException {
+	throws MxException {
 		// TODO catch exceptions, forward them
 		int msgSize;
 
@@ -93,17 +104,9 @@ public class MxSocket implements Runnable {
 			throw new MxException("descriptor too long.");
 		}
 
-		int link = JavaMx.links.getLink();
-		try {
-			if (JavaMx.connect(sendEndpointNumber, link, target.nicId, target.endpointId,
-					IBIS_FILTER, timeout) == false) {
-				// timeout
-				JavaMx.links.releaseLink(link);
-				return null;
-			}
-		} catch (MxException e) {
-			JavaMx.links.releaseLink(link);
-			throw new MxException("error: " + e.getMessage());
+		int link = lookup(target);
+		if(link == -1) {
+			return null;
 		}
 
 		// send request
@@ -113,21 +116,15 @@ public class MxSocket implements Runnable {
 				Matching.PROTOCOL_CONNECT);
 		msgSize = JavaMx.wait(sendEndpointNumber, connectHandle); //TODO timeout
 		if (msgSize < 0) {
-			// FIXME error
-			JavaMx.disconnect(link);
-			JavaMx.links.releaseLink(link);
 			throw new MxException("error");
 		}
-		
+
 		// read reply
 		connectBuf.clear();
 		JavaMx.recv(connectBuf, connectBuf.position(), connectBuf.remaining(),
 				endpointNumber, connectHandle, Matching.PROTOCOL_CONNECT_REPLY);
 		msgSize = JavaMx.wait(endpointNumber, connectHandle); //TODO timeout
 		if (msgSize < 0) {
-			// FIXME error
-			JavaMx.disconnect(link);
-			JavaMx.links.releaseLink(link);
 			throw new MxException("error");
 		}
 		connectBuf.limit(msgSize);
@@ -137,22 +134,17 @@ public class MxSocket implements Runnable {
 		case Connection.ACCEPT:
 			long matchData = Matching.construct(Matching.PROTOCOL_DATA,
 					connectBuf.getInt());
-			OutputStreamImpl os = new OutputStreamImpl(this, sendEndpointNumber, link,
+			DataOutputStreamImpl os = new DataOutputStreamImpl(this, sendEndpointNumber, link,
 					matchData, target);
-			addOutputStream(os);
+			addDataOutputStream(os);
 			replymsg = new byte[connectBuf.remaining()];
 			connectBuf.get(replymsg);
 			return new Connection(os, reply, replymsg);
 		case Connection.REJECT:
-			// TODO clean up
-			JavaMx.disconnect(link);
-			JavaMx.links.releaseLink(link);
 			replymsg = new byte[connectBuf.remaining()];
 			connectBuf.get(replymsg);
 			return new Connection(null, reply, replymsg);
 		default:
-			JavaMx.disconnect(link);
-			JavaMx.links.releaseLink(link);
 			throw new MxException("invalid reply");
 		}
 	}
@@ -171,7 +163,12 @@ public class MxSocket implements Runnable {
 			}
 			long protocol = Matching.getProtocol(matching);
 
-			if (protocol == Matching.PROTOCOL_DISCONNECT) {
+			if (protocol == Matching.PROTOCOL_ACK) {
+				if (logger.isDebugEnabled()) {
+					logger.debug("ACK message received");
+				}
+				receiveAck(matching);
+			} else if (protocol == Matching.PROTOCOL_DISCONNECT) {
 				if (logger.isDebugEnabled()) {
 					logger.debug("DISCONNECT message received");
 				}
@@ -211,6 +208,26 @@ public class MxSocket implements Runnable {
 		}
 	}
 
+	private void receiveAck(long matchData) {
+		listenBuf.clear();
+		try {
+			JavaMx.recv(listenBuf, listenBuf.position(), listenBuf.remaining(),
+					endpointNumber, listenHandle, matchData);
+			int size = JavaMx.wait(endpointNumber, listenHandle, 1000);
+			if (size < 0) {
+				if(!JavaMx.cancel(endpointNumber, listenHandle)) {
+					size = JavaMx.test(endpointNumber, listenHandle);
+				}
+			}
+		} catch (MxException e) {
+			// TODO Auto-generated catch block
+			// should not go wrong, the message is already waiting for us
+			e.printStackTrace();
+			return;
+		}
+	}
+
+
 	private void receiverClosedConnection(long matchData) {
 		listenBuf.clear();
 		try {
@@ -228,7 +245,7 @@ public class MxSocket implements Runnable {
 			return;
 		}
 		MxAddress sender = MxAddress.fromByteBuffer(listenBuf);
-		OutputStreamImpl os = getOutputStream(OutputStreamImpl.createString(sender,
+		DataOutputStreamImpl os = getDataOutputStream(DataOutputStreamImpl.createString(sender,
 				Matching.getPort(matchData)));
 
 		if (os != null) {
@@ -237,7 +254,7 @@ public class MxSocket implements Runnable {
 	}
 
 	private void senderClosedConnection(long matchData) {
-		InputStream is;
+		DataInputStream is;
 		try {
 			JavaMx.recv(null, 0, 0, endpointNumber, listenHandle, matchData);
 			JavaMx.wait(endpointNumber, listenHandle);
@@ -248,19 +265,19 @@ public class MxSocket implements Runnable {
 		}
 		int port = Matching.getPort(matchData);
 		if(port %2 == 0) {
-			is = lowLatencyInputStreams.get(port);	
+			is = lowLatencyDataInputStreams.get(port);	
 		} else {
-			is = selectableInputStreams.get(port);
+			is = selectableDataInputStreams.get(port);
 		}
-		
+
 		if (is == null) {
 			return; // bogus message, discard it
 		}
 		is.senderClosedConnection();
 	}
 
-	
-	
+
+
 	private void listen(long matchData) throws IOException {
 		// TODO catch exceptions
 		ConnectionRequest request = null;
@@ -299,11 +316,8 @@ public class MxSocket implements Runnable {
 			// user did not accept it, so we reject it
 			request.reject();
 		case ConnectionRequest.REJECTED:
-			int link = JavaMx.links.getLink();
-			if (!JavaMx.connect(sendEndpointNumber, link, source.nicId,
-					source.endpointId, IBIS_FILTER, 1000)) {
-				// error, stop
-				JavaMx.links.releaseLink(link);
+			int link = lookup(source);
+			if(link == -1) {
 				return;
 			}
 			listenBuf.clear();
@@ -318,14 +332,13 @@ public class MxSocket implements Runnable {
 				// timeout
 				JavaMx.cancel(sendEndpointNumber, listenHandle); // TODO
 			}
-			JavaMx.links.releaseLink(link);
 			listenBuf.clear();
 			return;
 		}
 	}
 
-	protected InputStream accept(ConnectionRequest request) throws MxException {
-		
+	protected DataInputStream accept(ConnectionRequest request) throws MxException {
+
 		long matchData;
 		try {
 			boolean selectable = request.selectable();
@@ -340,14 +353,11 @@ public class MxSocket implements Runnable {
 			request.reject();
 			return null;
 		}
-		
+
 		// TODO check listenBuf
-		int link = JavaMx.links.getLink();
-		if (!JavaMx.connect(sendEndpointNumber, link, request.getSourceAddress().nicId,
-				request.getSourceAddress().endpointId, IBIS_FILTER, 1000)) {
-			// error, stop
-			JavaMx.links.releaseLink(link);
-			// TODO EXCEPTION
+
+		int link = lookup(request.getSourceAddress());
+		if(link == -1) {
 			request.reject();
 			return null;
 		}
@@ -370,28 +380,26 @@ public class MxSocket implements Runnable {
 		if (msgSize < 0) {
 			// TODO timeout
 			try {
-				getInputStream(Matching.getPort(matchData)).close();
+				getDataInputStream(Matching.getPort(matchData)).close();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			JavaMx.cancel(sendEndpointNumber, listenHandle); // TODO
-			JavaMx.links.releaseLink(link);
 			//error
 			request.reject();
 			return null;
 		}
-		JavaMx.links.releaseLink(link);	
-		return getInputStream(Matching.getPort(matchData));
+		return getDataInputStream(Matching.getPort(matchData));
 	}
 
 	protected long addConnection(MxAddress source, boolean selectableChannel)
-		throws IOException {
+	throws IOException {
 		if(selectableChannel) {
 			boolean found = false;
 			for (long i = 1; i < Integer.MAX_VALUE/2; i++) {
 				nextsKey = (nextsKey % Integer.MAX_VALUE) + 2; // 0 will not be used
-				if (!selectableInputStreams.containsKey(nextsKey)) {
+				if (!selectableDataInputStreams.containsKey(nextsKey)) {
 					found = true;
 					break;
 				}
@@ -399,25 +407,25 @@ public class MxSocket implements Runnable {
 			if(!found) {
 				throw new IOException("maximum number of connections reached");
 			}
-			
+
 			long matchData;
-			SelectableInputStream is;
-			
+			SelectableDataInputStream is;
+
 			try {
 				matchData = Matching.construct(Matching.PROTOCOL_DATA, nextsKey);
-				is = new SelectableInputStream(this, source, endpointNumber(), matchData);
+				is = new SelectableDataInputStream(this, source, endpointNumber(), matchData);
 
-				selectableInputStreams.put(nextsKey, is);
+				selectableDataInputStreams.put(nextsKey, is);
 				return matchData;
 			} catch (IOException e) {
 				throw new MxException("Could not create a connection:" + e.getMessage());
 			}
-			
+
 		} else {
 			boolean found = false;
 			for (long i = 0; i < Integer.MAX_VALUE/2; i++) {
 				nextllKey = (nextllKey % Integer.MAX_VALUE) + 2; // 0 will not be used
-				if (!lowLatencyInputStreams.containsKey(nextllKey)) {
+				if (!lowLatencyDataInputStreams.containsKey(nextllKey)) {
 					found = true;
 					break;
 				}
@@ -425,90 +433,85 @@ public class MxSocket implements Runnable {
 			if(!found) {
 				throw new IOException("maximum number of connections reached");
 			}
-			
+
 			long matchData;
-			LowLatencyInputStream is;
-			
+			LowLatencyDataInputStream is;
+
 			try {
 				matchData = Matching.construct(Matching.PROTOCOL_DATA, nextllKey);
-				is = new LowLatencyInputStream(this, source, endpointNumber(), matchData);
-				
-				lowLatencyInputStreams.put(nextllKey, is);
+				is = new LowLatencyDataInputStream(this, source, endpointNumber(), matchData);
+
+				lowLatencyDataInputStreams.put(nextllKey, is);
 				return matchData;
 			} catch (IOException e) {
 				throw new MxException("Could not create a connection:" + e.getMessage());
 			}
 		}
 	}
-	
-	protected InputStream getInputStream(int port) {
+
+	protected DataInputStream getDataInputStream(int port) {
 		if(port % 2 == 0) {
-			return lowLatencyInputStreams.get(port);	
+			return lowLatencyDataInputStreams.get(port);	
 		} else {
-			return selectableInputStreams.get(port);
+			return selectableDataInputStreams.get(port);
 		}
 	}
-	
-	protected SelectableInputStream getSelectableInputStream(int port) {
+
+	protected SelectableDataInputStream getSelectableDataInputStream(int port) {
 		if(port % 2 == 0) {
 			return null;	
 		} else {
-			return selectableInputStreams.get(port);
+			return selectableDataInputStreams.get(port);
 		}
 	}
-	
-	protected InputStream removeInputStream(int port) {
+
+	protected DataInputStream removeDataInputStream(int port) {
 		if(port % 2 == 0) {
-			return lowLatencyInputStreams.remove(port);	
+			return lowLatencyDataInputStreams.remove(port);	
 		} else {
-			return selectableInputStreams.remove(port);
+			return selectableDataInputStreams.remove(port);
 		}
 	}
-	
+
 	public void close() {
 		closing = true;
 		if(deliveryThread != null) {
 			deliveryThread.close();
 		}
-		
+
 		// TODO check for channelManagers and listen thread to finish??
 		JavaMx.handles.releaseHandle(listenHandle);
 		JavaMx.handles.releaseHandle(connectHandle);
 		closed = true;
+		for(Integer link : links.values()) {
+			JavaMx.disconnect(link);
+			JavaMx.links.releaseLink(link);
+		}
 	}
 
 	protected int endpointNumber() {
 		return endpointNumber;
 	}
 
-	protected void addOutputStream(OutputStreamImpl os) {
-		outputStreams.put(os.toString(), os);
+	protected void addDataOutputStream(DataOutputStreamImpl os) {
+		dataOutputStreams.put(os.toString(), os);
 	}
 
-	protected OutputStreamImpl removeOutputStream(String identifier) {
-		return outputStreams.remove(identifier);
+	protected DataOutputStreamImpl removeDataOutputStream(String identifier) {
+		return dataOutputStreams.remove(identifier);
 	}
 
-	protected OutputStreamImpl getOutputStream(String identifier) {
-		return outputStreams.get(identifier);
+	protected DataOutputStreamImpl getDataOutputStream(String identifier) {
+		return dataOutputStreams.get(identifier);
 	}
 
 	// My InputStream closes, notify the sender
-	protected void sendCloseMessage(InputStream is) {
+	protected void sendCloseMessage(DataInputStream is) {
 		// should only be called by the InputStream
 		MxAddress target = is.getSource();
 
-		int link = JavaMx.links.getLink();
-		try {
-			if (JavaMx.connect(sendEndpointNumber, link, target.nicId, target.endpointId,
-					IBIS_FILTER) == false) {
-				// has the other side died??
-				JavaMx.links.releaseLink(link);
-				return;
-			}
-		} catch (MxException e1) {
-			// has the other side died??
-			JavaMx.links.releaseLink(link);
+		int link = lookup(target);
+		if(link == -1) {
 			return;
 		}
 
@@ -525,13 +528,61 @@ public class MxSocket implements Runnable {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
-		JavaMx.disconnect(link);
-		JavaMx.links.releaseLink(link);
-
 	}
+
+	protected void sendAck(DataInputStream is) {
+		// should only be called by the InputStream
+		MxAddress target = is.getSource();
+
+		
+		int link = lookup(target);
+		if(link == -1) {
+			return;
+		}
+
+		if(ackLock.tryLock() == false) {
+			return;
+		}
+		try {
+			if(ackInTransfer) {
+				if(JavaMx.test(sendEndpointNumber, ackHandle, 1000) < 0) {
+					JavaMx.forget(sendEndpointNumber, ackHandle);
+				}
+			}
+			JavaMx.send(null, 0, 0, sendEndpointNumber, link, ackHandle,
+					Matching.construct(Matching.PROTOCOL_ACK, is.getPort()));
+			ackInTransfer = true;
+		} catch (MxException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			ackLock.unlock();
+		}
+	}
+
 
 	public MxAddress getMyAddress() {
 		return myAddress;
+	}
+
+	int lookup(MxAddress address) {
+		Integer link = links.get(address);
+		if (link == null) {
+			try {
+				link = JavaMx.links.getLink();
+				if (JavaMx.connect(sendEndpointNumber, link, address.nicId, address.endpointId,
+						IBIS_FILTER) == false) {
+					// has the other side died??
+					JavaMx.links.releaseLink(link);
+					return -1;
+				}
+			} catch (MxException e1) {
+				// has the other side died??
+				JavaMx.links.releaseLink(link);
+				return -1;
+			}
+			links.put(address, link);
+		}
+		return link;
 	}
 }

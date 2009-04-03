@@ -1,34 +1,33 @@
 package mxio;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-final class ReceiveBuffer {
+final class MxReceiveBuffer {
 
 
 	static final int BUFFER_CACHE_SIZE = 128;
 
 //	static java.util.concurrent.LinkedBlockingDeque<ReceiveBuffer> cache = new LinkedBlockingDeque<ReceiveBuffer>(BUFFER_CACHE_SIZE);
 	
-	static ReceiveBuffer[] cache = new ReceiveBuffer[BUFFER_CACHE_SIZE];
+	static MxReceiveBuffer[] cache = new MxReceiveBuffer[BUFFER_CACHE_SIZE];
 	static int current = 0;
 	static ReentrantLock lock = new ReentrantLock();
 	
 	
 	private static final Logger logger = LoggerFactory
-    .getLogger(ReceiveBuffer.class);
+    .getLogger(MxReceiveBuffer.class);
 	
 	/**
 	 * Static method to get a sendbuffer out of the cache
 	 */
-	static ReceiveBuffer get() {
+	static MxReceiveBuffer get() {
 //		ReceiveBuffer result = cache.pollLast();
-		ReceiveBuffer result = null;
+		MxReceiveBuffer result = null;
 		lock.lock();
 		if(current != 0) {
 			result = cache[current-1];
@@ -38,7 +37,7 @@ final class ReceiveBuffer {
 		
 		if (result != null) {
 			if (logger.isInfoEnabled()) {
-				logger.info("ReceiveBuffer: got empty buffer from cache");
+//				logger.info("ReceiveBuffer: got empty buffer from cache");
 			}
 			result.clear();
 			return result;
@@ -46,15 +45,14 @@ final class ReceiveBuffer {
 		if (logger.isInfoEnabled()) {
 			logger.info("ReceiveBuffer: got new empty buffer");
 		}
-		return new ReceiveBuffer();
+		return new MxReceiveBuffer();
 	}
 
 	/**
 	 * static method to put a buffer in the cache
 	 */
-	static void recycle(ReceiveBuffer buffer) {
+	static void recycle(MxReceiveBuffer buffer) {
 		lock.lock();
-//		if(!cache.offerLast(buffer)) {
 		if(current >= BUFFER_CACHE_SIZE) {
 			if (logger.isInfoEnabled()) {
 				logger.info("ReceiveBuffer: cache full"
@@ -65,7 +63,7 @@ final class ReceiveBuffer {
 			cache[current] = buffer;
 			current++;
 			if (logger.isInfoEnabled()) {
-				logger.info("ReceiveBuffer: recycled buffer");
+//				logger.info("ReceiveBuffer: recycled buffer");
 			}
 		}
 		lock.unlock();
@@ -76,7 +74,7 @@ final class ReceiveBuffer {
 	 * the user) data, "not yet used" data (received but not given to user yet)
 	 * and "empty space"
 	 */
-	private ByteBuffer buffer;
+	private MxIOBuffer buffer;
 
 	private int port = 0;
 
@@ -86,9 +84,9 @@ final class ReceiveBuffer {
 	int postStatus;
 	static final int IDLE = 0, POSTED = 1, FINISHED = 2;
 
-	ReceiveBuffer() {
+	MxReceiveBuffer() {
 		myHandle =  JavaMx.handles.getHandle();
-		buffer = ByteBuffer.allocateDirect(Config.SIZEOF_HEADER + Config.BUFFER_SIZE);
+		buffer = new MxIOBuffer(Config.SIZEOF_HEADER + Config.BUFFER_SIZE);
 		buffer.clear();
 	}
 
@@ -109,7 +107,7 @@ final class ReceiveBuffer {
 		this.endpointNumber = endpointNumber;
 
 		try {
-			JavaMx.recv(buffer, 0, buffer.capacity(), endpointNumber, myHandle, matchData, matchMask);
+			JavaMx.recv(buffer.buf, 0, buffer.capacity(), endpointNumber, myHandle, matchData, matchMask);
 			postStatus = POSTED;
 		} catch (MxException e) {
 			// TODO handle this?
@@ -212,16 +210,107 @@ final class ReceiveBuffer {
 	}
 
 	byte readByte() throws IOException {
-		byte result;
-
-		result = buffer.get();
-
-		return result;
+		return buffer.get();
 	}
 
+	char readChar() throws IOException {
+		return buffer.getChar();
+	}
+	
+	short readShort() throws IOException {
+		return buffer.getShort();
+	}
+	
+	int readInt() throws IOException {
+		return buffer.getInt();
+	}
+	
+	long readLong() throws IOException {
+		return buffer.getLong();
+	}
+	
+	float readFloat() throws IOException {
+		return buffer.getFloat();
+	}
+	
+	double readDouble() throws IOException {
+		return buffer.getDouble();
+	}
 
 	int readArray(byte ref[], int off, int len) throws IOException {
-		int remaining = buffer.remaining();
+		int remaining = buffer.remaining() / SizeOf.BYTE;
+
+		if (len <= remaining) {
+			buffer.get(ref, off, len);
+			return len;
+		} else {
+			buffer.get(ref, off, remaining);
+			return remaining;
+		}
+	}
+	
+	int readArray(char ref[], int off, int len) throws IOException {
+		int remaining = buffer.remaining() / SizeOf.CHAR;
+
+		if (len <= remaining) {
+			buffer.get(ref, off, len);
+			return len;
+		} else {
+			buffer.get(ref, off, remaining);
+			return remaining;
+		}
+	}
+
+	int readArray(short ref[], int off, int len) throws IOException {
+		int remaining = buffer.remaining() / SizeOf.SHORT;
+
+		if (len <= remaining) {
+			buffer.get(ref, off, len);
+			return len;
+		} else {
+			buffer.get(ref, off, remaining);
+			return remaining;
+		}
+	}
+
+	int readArray(int ref[], int off, int len) throws IOException {
+		int remaining = buffer.remaining() / SizeOf.INT;
+
+		if (len <= remaining) {
+			buffer.get(ref, off, len);
+			return len;
+		} else {
+			buffer.get(ref, off, remaining);
+			return remaining;
+		}
+	}
+
+	int readArray(long ref[], int off, int len) throws IOException {
+		int remaining = buffer.remaining() / SizeOf.LONG;
+
+		if (len <= remaining) {
+			buffer.get(ref, off, len);
+			return len;
+		} else {
+			buffer.get(ref, off, remaining);
+			return remaining;
+		}
+	}
+
+	int readArray(float ref[], int off, int len) throws IOException {
+		int remaining = buffer.remaining() / SizeOf.FLOAT;
+
+		if (len <= remaining) {
+			buffer.get(ref, off, len);
+			return len;
+		} else {
+			buffer.get(ref, off, remaining);
+			return remaining;
+		}
+	}
+	
+	int readArray(double ref[], int off, int len) throws IOException {
+		int remaining = buffer.remaining() / SizeOf.DOUBLE;
 
 		if (len <= remaining) {
 			buffer.get(ref, off, len);

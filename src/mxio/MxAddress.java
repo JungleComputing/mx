@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-public class MxAddress implements Serializable {
+public class MxAddress implements Serializable, Comparable<MxAddress> {
 
 	private static final long serialVersionUID = 366681380585852309L;
 	protected static final int SIZE = (2 * Character.SIZE + Long.SIZE + Integer.SIZE) / 8;
@@ -49,4 +49,16 @@ public class MxAddress implements Serializable {
 		return bytes;
 	}
 
+	@Override
+	public int compareTo(MxAddress o) {
+		long res = nicId - o.nicId;
+		if(res == 0) {
+			return endpointId - o.endpointId;
+		}
+		if(res > 0) {
+			return 1;
+		} else {
+			return -1;
+		}
+	}
 }

@@ -17,6 +17,5 @@ interface MxProtocol {
     static final byte QUIT_IBIS = 14;
 
     static final byte REPLY = 127;
-    
-    static final int BUFSIZE = mxio.OutputStream.BUFFER_SIZE;
+
 }

@@ -14,7 +14,7 @@ public final class DeliveryThread implements Runnable, Config {
 	private static final Logger logger = LoggerFactory
     .getLogger(DeliveryThread.class);
 	
-	ArrayBlockingQueue<ReceiveBuffer> queue;
+	ArrayBlockingQueue<MxReceiveBuffer> queue;
 	int capacity;
 	int endpointNumber;
 	MxSocket socket;
@@ -29,7 +29,7 @@ public final class DeliveryThread implements Runnable, Config {
 		this.socket = socket;
 		this.endpointNumber = socket.endpointNumber();
 		
-		queue = new ArrayBlockingQueue<ReceiveBuffer>(capacity);
+		queue = new ArrayBlockingQueue<MxReceiveBuffer>(capacity);
 		
 	}
 
@@ -43,7 +43,7 @@ public final class DeliveryThread implements Runnable, Config {
 		}
 
 		while(open) {
-			ReceiveBuffer buf = null;
+			MxReceiveBuffer buf = null;
 			while(buf == null) {
 				try {
 					buf = queue.poll(1, TimeUnit.SECONDS);
@@ -71,7 +71,7 @@ public final class DeliveryThread implements Runnable, Config {
 			}
 			
 			
-			SelectableInputStream target = socket.getSelectableInputStream(buf.port());
+			SelectableDataInputStream target = socket.getSelectableDataInputStream(buf.port());
 			if(target == null) {
 				if(logger.isDebugEnabled()) {
 					logger.debug("Buffer dropped: unknown receiver: " + buf.port());
@@ -85,22 +85,22 @@ public final class DeliveryThread implements Runnable, Config {
 	}
 
 	private void finish() {
-		ReceiveBuffer buffer = queue.poll();
+		MxReceiveBuffer buffer = queue.poll();
 		while(buffer != null) {
 			buffer.cancel();
-			ReceiveBuffer.recycle(buffer);
+			MxReceiveBuffer.recycle(buffer);
 			buffer = queue.poll();
 		}
 	}
 
 	private void postBuffer() {
-		ReceiveBuffer buf = ReceiveBuffer.get();
+		MxReceiveBuffer buf = MxReceiveBuffer.get();
 		if (queue.offer(buf) == false) {
 			if(logger.isDebugEnabled()) {
 				logger.debug("not posting buffer: queue full");
 			}
 			// Queue full
-			ReceiveBuffer.recycle(buf);
+			MxReceiveBuffer.recycle(buf);
 			return;
 		}
 				

@@ -76,7 +76,9 @@
 			<arg value="-d"/>
 			<arg value="src/mxio"/>
 			<arg value="mxio.JavaMx"/>
+			<arg value="mxio.MxIOBuffer"/>
 		</exec>
+    	
 		<!-- compile c library -->
 		<exec executable="make" dir="src/mxio"/>
 
@@ -153,6 +155,7 @@
         <delete file="src/mxio/mxio_JavaMx_HandleManager.h" />
         <delete file="src/mxio/mxio_JavaMx_LinkManager.h" />
         <delete file="src/mxio/mxio_JavaMx.h" />
+    	<delete file="src/mxio/mxio_MxIOBuffer.h" />
     </target>
 
     <target name="rewrite"

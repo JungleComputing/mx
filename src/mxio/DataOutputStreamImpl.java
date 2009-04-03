@@ -5,10 +5,10 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OutputStreamImpl extends OutputStream {
+public class DataOutputStreamImpl extends DataOutputStream {
 
 	private static final Logger logger = LoggerFactory
-    .getLogger(OutputStreamImpl.class);
+    .getLogger(DataOutputStreamImpl.class);
 
 	private MxAddress target;
 	private int endpointNumber;
@@ -17,7 +17,7 @@ public class OutputStreamImpl extends OutputStream {
 
 	private class FlushQueue {
 		int[] handles;
-		SendBuffer[] queue;
+		MxSendBuffer[] queue;
 		
 		int head;
 		int elements;
@@ -28,7 +28,7 @@ public class OutputStreamImpl extends OutputStream {
 		FlushQueue(int size) {
 			head = elements = 0;
 			this.size = size;
-			queue = new SendBuffer[size];
+			queue = new MxSendBuffer[size];
 			handles = new int[size];
 			for (int i = 0; i < size; i++) {
 				handles[i] = JavaMx.handles.getHandle();
@@ -39,12 +39,12 @@ public class OutputStreamImpl extends OutputStream {
 			destroy();
 		}
 
-		SendBuffer flushHead() throws MxException {
+		MxSendBuffer flushHead() throws MxException {
 			if (elements == 0) {
 				return null;
 			}
 			
-			SendBuffer buf = queue[head];
+			MxSendBuffer buf = queue[head];
 			
 			int msgSize = -1;
 			/*
@@ -72,7 +72,7 @@ public class OutputStreamImpl extends OutputStream {
 			return buf;
 		}
 		
-		boolean doSend(SendBuffer buffer) throws MxException {
+		boolean doSend(MxSendBuffer buffer) throws MxException {
 			if(elements == size) {
 				return false;
 			}
@@ -81,7 +81,9 @@ public class OutputStreamImpl extends OutputStream {
 			queue[tail] = buffer;
 			elements++;
 						
-			JavaMx.send(buffer.header, buffer.header.capacity(), buffer.payload, buffer.payload.remaining(), endpointNumber, 
+			//JavaMx.send(buffer.header.buf, buffer.header.capacity(), buffer.payload.buf, buffer.payload.remaining(), endpointNumber, 
+//					myLink, handles[tail], matchData);
+			JavaMx.send(buffer.header.buf, buffer.header.capacity(), buffer.payload.buf, buffer.payload.remaining(), endpointNumber, 
 					myLink, handles[tail], matchData);
 			return true;
 		}
@@ -112,7 +114,7 @@ public class OutputStreamImpl extends OutputStream {
 	
 	private int port;
 	
-	protected OutputStreamImpl(MxSocket socket, int endpointNumber, int link,
+	protected DataOutputStreamImpl(MxSocket socket, int endpointNumber, int link,
 			long matchData, MxAddress target) {
 		super();
 		
@@ -124,14 +126,14 @@ public class OutputStreamImpl extends OutputStream {
 		myLink = link;
 	}
 	
-	long doSend(SendBuffer buffer) throws IOException {
+	long doSend(MxSendBuffer buffer) throws IOException {
 		buffer.setPort(port);
 		long size = buffer.remaining();
 		
 		while(!flushQueue.doSend(buffer)) {
-			SendBuffer flushedBuf = flushHead();
+			MxSendBuffer flushedBuf = flushHead();
 			if(flushedBuf != null) {
-				SendBuffer.recycle(flushedBuf);
+				MxSendBuffer.recycle(flushedBuf);
 			}
 		}
 		
@@ -139,17 +141,17 @@ public class OutputStreamImpl extends OutputStream {
 	}
 		
 	void doFlush() throws IOException {
-		SendBuffer buffer;	
+		MxSendBuffer buffer;	
 		
 		while(!flushQueue.isEmpty()) {
 			buffer = flushHead();
 			if(buffer != null) {
-				SendBuffer.recycle(buffer);
+				MxSendBuffer.recycle(buffer);
 			}
 		}
 	}
 	
-	SendBuffer flushHead() throws MxException {
+	MxSendBuffer flushHead() throws MxException {
 		return flushQueue.flushHead();
 	}
 	
@@ -203,7 +205,4 @@ public class OutputStreamImpl extends OutputStream {
 		return "OutputStreamImpl:" + address.toString() + "("
 				+ Integer.toString(port) + ")";
 	}
-	
-	
-	
 }

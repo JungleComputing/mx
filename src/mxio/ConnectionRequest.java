@@ -34,7 +34,7 @@ public class ConnectionRequest {
 		status = REJECTED;
 	}
 	
-	public InputStream accept(boolean selectable) {
+	public DataInputStream accept(boolean selectable) {
 		status = ACCEPTED;
 		this.selectable = selectable;		
 		try {

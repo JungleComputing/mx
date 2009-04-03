@@ -23,7 +23,6 @@ import ibis.ipl.registry.Credentials;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.HashMap;
@@ -34,10 +33,10 @@ import org.slf4j.LoggerFactory;
 
 import mxio.Connection;
 import mxio.ConnectionRequest;
+import mxio.DataOutputStream;
 import mxio.MxAddress;
 import mxio.MxListener;
 import mxio.MxSocket;
-import mxio.OutputStream;
 
 public final class MxIbis extends ibis.ipl.impl.Ibis 
 implements MxListener {
@@ -87,7 +86,7 @@ implements MxListener {
 	 * synchronized(addresses) { addresses.remove(id); } }
 	 */
 
-	OutputStream connect(MxSendPort sp, ibis.ipl.impl.ReceivePortIdentifier rip,
+	DataOutputStream connect(MxSendPort sp, ibis.ipl.impl.ReceivePortIdentifier rip,
 			int timeout, boolean fillTimeout) throws IOException {
 
 		IbisIdentifier id = (IbisIdentifier) rip.ibisIdentifier();
@@ -113,7 +112,7 @@ implements MxListener {
 
 		do {         
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			DataOutputStream out = new DataOutputStream(baos);
+			java.io.DataOutputStream out = new java.io.DataOutputStream(baos);
 			out.writeUTF(name);
 			sp.getIdent().writeTo(out);
 			sendPortType.writeTo(out);
@@ -136,19 +135,19 @@ implements MxListener {
 				result = in.readInt();
 			} else { //replyMsg == null
 				if (c.getReply() == Connection.ACCEPT) {
-					c.getOutputStream().close();
+					c.getDataOutputStream().close();
 					throw new ConnectionFailedException("Invalid connection reply message", rip);
 				} else {
 					throw new ConnectionRefusedException("connection refused, reply message is missing", rip);
 				}				
 			}
-			OutputStream os;
+			DataOutputStream os;
 
 			try {
 				switch(result) {
 				case ReceivePort.ACCEPTED:
 					if(c.getReply() == Connection.ACCEPT) {
-						os = c.getOutputStream();
+						os = c.getDataOutputStream();
 					} else {
 						//FIXME error
 						os = null;
@@ -255,7 +254,7 @@ implements MxListener {
 		if (rp == null) {
 			result = ReceivePort.NOT_PRESENT;
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			DataOutputStream out = new DataOutputStream(baos);
+			java.io.DataOutputStream out = new java.io.DataOutputStream(baos);
 			try {
 				out.writeInt(result);
 				out.flush();
@@ -292,7 +291,6 @@ implements MxListener {
 
 	protected SendPort doCreateSendPort(PortType tp, String nm,
 			SendPortDisconnectUpcall cU, Properties props) throws IOException {
-//		return new MxSplitterSendPort(this, tp, nm, cU, props);
 		return new MxMulticastSendPort(this, tp, nm, cU, props);
 		
 	}

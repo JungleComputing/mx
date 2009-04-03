@@ -1,7 +1,6 @@
 
 package ibis.ipl.impl.mx;
 
-import ibis.io.BufferedArrayInputStream;
 import ibis.io.Conversion;
 import ibis.ipl.MessageUpcall;
 import ibis.ipl.PortType;
@@ -24,7 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import mxio.ConnectionRequest;
-import mxio.InputStream;
+import mxio.DataInputStream;
 
 /* based on the ReceivePort of TCPIbis */
 
@@ -36,22 +35,13 @@ class MxDefaultReceivePort extends MxReceivePort {
     class ConnectionHandler extends ReceivePortConnectionInfo 
             implements Runnable, MxProtocol {
 
-        private final InputStream is;
-
-        ConnectionHandler(SendPortIdentifier origin, InputStream is,
-                ReceivePort port, BufferedArrayInputStream in)
+        ConnectionHandler(SendPortIdentifier origin, ReceivePort port, DataInputStream in)
                 throws IOException {
             super(origin, port, in);
-            this.is = is;
         }
 
         public void close(Throwable e) {
             super.close(e);
-            try {
-                is.close();
-            } catch (Throwable x) {
-                // ignore
-            }
         }
 
         public void run() {
@@ -281,7 +271,7 @@ class MxDefaultReceivePort extends MxReceivePort {
     	
     	if (result == ACCEPTED) {
     		//TODO selectable
-    		InputStream is = req.accept(false);
+    		DataInputStream is = req.accept(false);
     		if(is == null) {
     			result = DENIED;
     			this.lostConnection(origin, new IOException("ChannelManager denied connection"));
@@ -289,7 +279,7 @@ class MxDefaultReceivePort extends MxReceivePort {
 	            synchronized(this) {
 	                try {
 	                	//TODO
-	                	ConnectionHandler conn = new ConnectionHandler(origin, is, this, new BufferedArrayInputStream(is, BUFSIZE));
+	                	ConnectionHandler conn = new ConnectionHandler(origin, this, is);
 	                	if (! no_connectionhandler_thread) {
 	                    	ThreadPool.createNew(conn, "ConnectionHandler");
 	                    }

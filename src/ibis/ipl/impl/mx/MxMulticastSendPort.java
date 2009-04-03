@@ -1,6 +1,5 @@
 package ibis.ipl.impl.mx;
 
-import ibis.io.BufferedArrayOutputStream;
 import ibis.ipl.PortType;
 import ibis.ipl.SendPortDisconnectUpcall;
 import ibis.ipl.impl.Ibis;
@@ -12,8 +11,8 @@ import java.io.IOException;
 import java.util.Properties;
 
 import mxio.CollectedWriteException;
-import mxio.MulticastOutputStream;
-import mxio.OutputStream;
+import mxio.MulticastDataOutputStream;
+import mxio.DataOutputStream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,9 +23,9 @@ final class MxMulticastSendPort extends MxSendPort {
     .getLogger(MxMulticastSendPort.class);
 	
     private class Conn extends SendPortConnectionInfo {
-    	OutputStream os;
+    	DataOutputStream os;
 
-        Conn(OutputStream os, MxMulticastSendPort port, ReceivePortIdentifier target)
+        Conn(DataOutputStream os, MxMulticastSendPort port, ReceivePortIdentifier target)
                 throws IOException {
             super(port, target);
             this.os = os;
@@ -49,18 +48,15 @@ final class MxMulticastSendPort extends MxSendPort {
     }
 
     //final OutputStreamSplitter splitter;
-    final MulticastOutputStream mcos;
-
-    final BufferedArrayOutputStream bufferedStream;
+    final MulticastDataOutputStream mcos;
 
     MxMulticastSendPort(Ibis ibis, PortType type, String name,
             SendPortDisconnectUpcall cU, Properties props) throws IOException {
         super(ibis, type, name, cU, props);
         
         //TODO bufsize
-        mcos = new MulticastOutputStream();
-        bufferedStream = new BufferedArrayOutputStream(mcos, BUFSIZE);
-        initStream(bufferedStream);
+        mcos = new MulticastDataOutputStream();
+        initStream(mcos);
     }
 
     protected long totalWritten() {
@@ -74,19 +70,15 @@ final class MxMulticastSendPort extends MxSendPort {
     protected SendPortConnectionInfo doConnect(ReceivePortIdentifier receiver,
             long timeoutMillis, boolean fillTimeout) throws IOException {
 
-    	OutputStream os = 
+    	DataOutputStream os = 
     		((MxIbis) ibis).connect(this, receiver, (int) timeoutMillis,
                 fillTimeout);
         Conn c = new Conn(os, this, receiver);
         if (out != null) {
             out.writeByte(NEW_RECEIVER);
         }
-        initStream(bufferedStream);
+        initStream(mcos);
         return c;
-    }
-
-    protected void sendDisconnectMessage(ReceivePortIdentifier receiver,
-            SendPortConnectionInfo conn) throws IOException {
     }
 
     protected void announceNewMessage() throws IOException {
@@ -110,7 +102,7 @@ final class MxMulticastSendPort extends MxSendPort {
         	CollectedWriteException e = (CollectedWriteException) x;
 
             Exception[] exceptions = e.getExceptions();
-            mxio.OutputStream[] streams = e.getStreams();
+            mxio.DataOutputStream[] streams = e.getStreams();
 
             for (int i = 0; i < ports.length; i++) {
                 Conn c = (Conn) getInfo(ports[i]);
@@ -133,7 +125,7 @@ final class MxMulticastSendPort extends MxSendPort {
 
         try {
             out.close();
-            bufferedStream.close();
+            mcos.close();
         } catch (Throwable e) {
             // ignored
         }

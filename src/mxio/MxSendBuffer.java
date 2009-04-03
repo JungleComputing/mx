@@ -1,6 +1,5 @@
 package mxio;
 
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 import java.util.concurrent.locks.ReentrantLock;
@@ -8,33 +7,33 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-final class SendBuffer implements Config {
+final class MxSendBuffer implements Config {
 
 	static final int BUFFER_CACHE_SIZE = 128;
 
-//	static LinkedBlockingDeque<SendBuffer> cache = new LinkedBlockingDeque<SendBuffer>(BUFFER_CACHE_SIZE);
-	static SendBuffer[] cache = new SendBuffer[BUFFER_CACHE_SIZE];
+	//	static LinkedBlockingDeque<SendBuffer> cache = new LinkedBlockingDeque<SendBuffer>(BUFFER_CACHE_SIZE);
+	static MxSendBuffer[] cache = new MxSendBuffer[BUFFER_CACHE_SIZE];
 	static int current = 0;
 	static ReentrantLock lock = new ReentrantLock();
 
 	private static final Logger logger = LoggerFactory
-    .getLogger(SendBuffer.class);
+	.getLogger(MxSendBuffer.class);
 
 	/**
 	 * Static method to get a sendbuffer out of the cache
 	 */
-	static SendBuffer get() {
-		SendBuffer result = null;
+	static MxSendBuffer get() {
+		MxSendBuffer result = null;
 		lock.lock();
 		if(current != 0) {
 			result = cache[current-1];
 			current--;
 		}
 		lock.unlock();
-//		SendBuffer result = cache.pollLast();
+		//		SendBuffer result = cache.pollLast();
 		if (result != null) {
 			if (logger.isInfoEnabled()) {
-				logger.info("SendBuffer: got empty buffer from cache");
+//				logger.info("SendBuffer: got empty buffer from cache");
 			}
 			result.clear();
 			return result;
@@ -42,58 +41,59 @@ final class SendBuffer implements Config {
 		if (logger.isInfoEnabled()) {
 			logger.info("SendBuffer: got new empty buffer");
 		}
-		return new SendBuffer();
+		return new MxSendBuffer();
 	}
 
 	/**
 	 * static method to put a buffer in the cache
 	 */
-	static void recycle(SendBuffer buffer) {
+	static void recycle(MxSendBuffer buffer) {
 		if (buffer.parent == null) {
-			if (buffer.copies != 0) {
-				buffer.copies--;
-				// throw new Error("tried to recycle buffer with children!");
-				return;
-			} else {
-				lock.lock();	
-//				if(!cache.offerLast(buffer)) {
-				if(current >= BUFFER_CACHE_SIZE) {
-					if (logger.isInfoEnabled()) {
-						logger.info("SendBuffer: cache full"
-								+ " upon recycling buffer, throwing away");
-					}
+			synchronized(buffer) {
+				if (buffer.copies != 0) {
+					buffer.copies--;
+					return;
 				} else {
-					cache[current] = buffer;
-					current++;
-					if (logger.isInfoEnabled()) {
-						logger.info("SendBuffer: recycled buffer");
+					lock.lock();	
+					if(current >= BUFFER_CACHE_SIZE) {
+						if (logger.isInfoEnabled()) {
+							logger.info("SendBuffer: cache full"
+									+ " upon recycling buffer, throwing away");
+						}
+					} else {
+						cache[current] = buffer;
+						current++;
+						if (logger.isInfoEnabled()) {
+//							logger.info("SendBuffer: recycled buffer");
+						}
 					}
+					lock.unlock();
 				}
-				lock.unlock();
 			}
 		} else {
 			if (logger.isInfoEnabled()) {
-				logger.info("SendBuffer: recycling child buffer");
+//				logger.info("SendBuffer: recycling child buffer");
 			}
-			buffer.parent.copies--;
-			if (buffer.parent.copies < 0) {
-				buffer.parent.copies = 0;
-				lock.lock();
-//				if(!cache.offerLast(buffer.parent)) {
-				if(current >= BUFFER_CACHE_SIZE) {
-					if (logger.isInfoEnabled()) {
-						logger.info("SendBuffer: cache full"
-								+ " upon recycling parent of child buffer,"
-								+ " throwing away");
+			synchronized(buffer.parent) {
+				buffer.parent.copies--;
+				if (buffer.parent.copies < 0) {
+					buffer.parent.copies = 0;
+					lock.lock();
+					if(current >= BUFFER_CACHE_SIZE) {
+						if (logger.isInfoEnabled()) {
+							logger.info("SendBuffer: cache full"
+									+ " upon recycling parent of child buffer,"
+									+ " throwing away");
+						}
+					} else {
+						cache[current] = buffer.parent;
+						current++;
+						if (logger.isInfoEnabled()) {
+//							logger.info("SendBuffer: recycled parent buffer");
+						}
 					}
-				} else {
-					cache[current] = buffer;
-					current++;
-					if (logger.isInfoEnabled()) {
-						logger.info("SendBuffer: recycled parent buffer");
-					}
+					lock.unlock();
 				}
-				lock.unlock();
 			}
 		}
 	}
@@ -101,11 +101,11 @@ final class SendBuffer implements Config {
 	/**
 	 * create copies of a buffer, records how may copies are made so far
 	 */
-	static SendBuffer[] replicate(SendBuffer original, int copies) {
-		SendBuffer[] result = new SendBuffer[copies];
+	static MxSendBuffer[] replicate(MxSendBuffer original, int copies) {
+		MxSendBuffer[] result = new MxSendBuffer[copies];
 
 		for (int i = 0; i < copies; i++) {
-			result[i] = new SendBuffer(original);
+			result[i] = new MxSendBuffer(original);
 		}
 		original.copies += copies;
 		if(logger.isDebugEnabled()) {
@@ -119,17 +119,17 @@ final class SendBuffer implements Config {
 	private int copies = 0;
 
 	// original buffer this buffer is a copy of (if applicable)
-	SendBuffer parent = null;
+	MxSendBuffer parent = null;
 
-	ByteBuffer payload;
-	ByteBuffer header;
+	MxIOBuffer payload;
+	MxIOBuffer header;
 
-	SendBuffer() {
+	MxSendBuffer() {
 		ByteOrder order = ByteOrder.nativeOrder();
 
-		payload = ByteBuffer.allocateDirect(Config.BUFFER_SIZE).order(
+		payload = new MxIOBuffer(Config.BUFFER_SIZE).order(
 				order);
-		header = ByteBuffer.allocateDirect(Config.SIZEOF_HEADER).order(
+		header = new MxIOBuffer(Config.SIZEOF_HEADER).order(
 				order);
 
 		// put the byte order in the first byte of the header
@@ -142,16 +142,16 @@ final class SendBuffer implements Config {
 	}
 
 	/**
-	 * Copy constructor. Acutally only copies byteBuffers;
+	 * Copy constructor. Actually only copies byteBuffers;
 	 */
-	SendBuffer(SendBuffer parent) {
+	MxSendBuffer(MxSendBuffer parent) {
 		ByteOrder order = ByteOrder.nativeOrder();
 
 		this.parent = parent;
 		payload = parent.payload.duplicate();
-		header = ByteBuffer.allocateDirect(Config.SIZEOF_HEADER).order(
+		header = new MxIOBuffer(Config.SIZEOF_HEADER).order(
 				order);
-//		 put the byte order in the first byte of the header
+		//		 put the byte order in the first byte of the header
 		if (order == ByteOrder.BIG_ENDIAN) {
 			header.put(0, (byte) 1);
 		} else {
@@ -220,7 +220,7 @@ final class SendBuffer implements Config {
 	boolean hasRemaining() {
 		return payload.hasRemaining();
 	}
-	
+
 	/**
 	 * returns the number of remaining bytes in the bytebuffers
 	 */

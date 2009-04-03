@@ -16,13 +16,19 @@ interface Config {
 	static final int PORT_BYTE = 4;
 			
     /** Byte buffer size used. **/
-    static final int BUFFER_SIZE = 32 * 1024;
+	//static final int START_BUFFER_SIZE = 2 * 1024;
+    static final int BUFFER_SIZE = 64 * 1024;
+    static final int REPORTED_BUFFER_SIZE = 8 * 1024;
 
-	static final int DELIVERY_THREAD_BUFFERS = 32;
+	static final int DELIVERY_THREAD_BUFFERS = 8;
 	
-	/** Flush queue size of OutputStreams and LowLatencyInputStream **/
-	static final int FLUSH_QUEUE_SIZE = 8;
+	/** Receive queue size of LowLatencyInputStream **/
+	static final int RECEIVE_QUEUE_SIZE = 4;
+	
+	/** Flush queue size of OutputStreams **/
+	static final int FLUSH_QUEUE_SIZE = 4;
 	
 	/** Amount of poll before a blocking call to complete a request **/ 
-	static final int POLLS = 1000 ; // 5 polls per micro? probably less
+	static final int POLLS = 2000 ; // 5 polls per micro? probably less
+	static final int ACK_INTERVAL = 5;
 }

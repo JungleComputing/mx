@@ -7,19 +7,21 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SelectableInputStream extends InputStream {
+public class SelectableDataInputStream extends DataInputStream {
 	
 	private static final Logger logger = LoggerFactory
-    .getLogger(SelectableInputStream.class);
+    .getLogger(SelectableDataInputStream.class);
 
+	private static final int ACK_INTERVAL = Config.ACK_INTERVAL;
+	private int ackCounter = 0;
 		
-	private	LinkedBlockingQueue<ReceiveBuffer> queue;
+	private	LinkedBlockingQueue<MxReceiveBuffer> queue;
 
 	private volatile boolean inSelector = false;
 
 	private volatile Selector selector;
 	
-	protected SelectableInputStream(MxSocket socket, MxAddress source,
+	protected SelectableDataInputStream(MxSocket socket, MxAddress source,
 			int endpointNumber, long matchData) throws IOException {
 		super(socket, source, endpointNumber, matchData);
 
@@ -28,10 +30,10 @@ public class SelectableInputStream extends InputStream {
 					Integer.toHexString(Matching.getPort(matchData)) 
 					+  " created.");
 		}
-		queue = new LinkedBlockingQueue<ReceiveBuffer>();
+		queue = new LinkedBlockingQueue<MxReceiveBuffer>();
 	}
 		
-	protected void newMessage(ReceiveBuffer buf) {
+	protected void newMessage(MxReceiveBuffer buf) {
 		while(true) {
 			try {
 				queue.put(buf);
@@ -49,8 +51,8 @@ public class SelectableInputStream extends InputStream {
 	}
 	
 	@Override
-	protected ReceiveBuffer fetchBuffer() throws IOException {
-		ReceiveBuffer buffer = null;
+	protected MxReceiveBuffer fetchBuffer() throws IOException {
+		MxReceiveBuffer buffer = null;
 		
 		while(buffer == null) {
 			if(senderClosed) {
@@ -73,6 +75,12 @@ public class SelectableInputStream extends InputStream {
 				}	
 			}
 		}
+		/*
+		if(++ackCounter >= ACK_INTERVAL) {
+			ackCounter = 0;
+			socket.sendAck(this);
+		}
+		*/
 		return buffer;
 	}
 	
@@ -142,7 +150,7 @@ public class SelectableInputStream extends InputStream {
 
 	@Override
 	protected void cleanUp() {
-		ReceiveBuffer buffer = queue.poll();
+		MxReceiveBuffer buffer = queue.poll();
 		while(buffer != null) {
 			if(!buffer.cancel()) {
 				try {
@@ -151,7 +159,7 @@ public class SelectableInputStream extends InputStream {
 					// TODO ignore
 				}
 			}
-			ReceiveBuffer.recycle(buffer);
+			MxReceiveBuffer.recycle(buffer);
 			buffer = queue.poll();
 		}
 		// let the user find out that we are closed

@@ -14,8 +14,8 @@ public abstract class Common implements MxListener {
 	static int retries     = 10;
 	
 	MxSocket socket;
-	InputStream is = null;
-	OutputStream os = null;
+	DataInputStream is = null;
+	DataOutputStream os = null;
 	MxAddress sender;
 	
 	Common() {
@@ -127,7 +127,7 @@ public abstract class Common implements MxListener {
 			Connection conn = socket.connect(target, ds, 1000);
 			CharBuffer cbuf = ByteBuffer.wrap(conn.getReplyMessage()).order(ByteOrder.BIG_ENDIAN).asCharBuffer();
 			System.err.println("Reply arrived: " + cbuf.toString());
-			os = conn.getOutputStream();
+			os = conn.getDataOutputStream();
 		} catch (MxException e) {
 			e.printStackTrace();
 			System.exit(2);
@@ -171,7 +171,7 @@ public abstract class Common implements MxListener {
 			Connection conn = socket.connect(sender, ds, 1000);
 			CharBuffer cbuf = ByteBuffer.wrap(conn.getReplyMessage()).order(ByteOrder.BIG_ENDIAN).asCharBuffer();
 			System.err.println("Reply arrived: " + cbuf.toString());
-			os = conn.getOutputStream();
+			os = conn.getDataOutputStream();
 		} catch (MxException e) {
 			e.printStackTrace();
 			System.exit(2);

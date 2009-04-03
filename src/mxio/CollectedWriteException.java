@@ -12,7 +12,7 @@ public class CollectedWriteException extends IOException {
 	 */
 	private static final long serialVersionUID = 8852201113944561908L;
 
-	private ArrayList<OutputStream> oSes = new ArrayList<OutputStream>();
+	private ArrayList<DataOutputStream> oSes = new ArrayList<DataOutputStream>();
 
 	private ArrayList<Exception> exceptions = new ArrayList<Exception>();
 
@@ -20,7 +20,7 @@ public class CollectedWriteException extends IOException {
 		// empty constructor
 	}
 
-	public void add(OutputStream c, Exception e) {
+	public void add(DataOutputStream c, Exception e) {
 		if (oSes.contains(c)) {
 			System.err.println("AAA, stream was already in splitter exception");
 		}
@@ -33,15 +33,15 @@ public class CollectedWriteException extends IOException {
 		return oSes.size();
 	}
 
-	public OutputStream[] getStreams() {
-		return oSes.toArray(new OutputStream[0]);
+	public DataOutputStream[] getStreams() {
+		return oSes.toArray(new DataOutputStream[0]);
 	}
 
 	public Exception[] getExceptions() {
 		return exceptions.toArray(new Exception[0]);
 	}
 
-	public OutputStream getOS(int pos) {
+	public DataOutputStream getOS(int pos) {
 		return oSes.get(pos);
 	}
 

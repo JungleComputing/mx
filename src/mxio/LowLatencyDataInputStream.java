@@ -6,14 +6,17 @@ import java.util.concurrent.ArrayBlockingQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LowLatencyInputStream extends InputStream {
+public class LowLatencyDataInputStream extends DataInputStream {
 
 	private static final Logger logger = LoggerFactory
-    .getLogger(LowLatencyInputStream.class);
+    .getLogger(LowLatencyDataInputStream.class);
 	
-	private	ArrayBlockingQueue<ReceiveBuffer> queue;
+	private static final int ACK_INTERVAL = Config.ACK_INTERVAL;
+	private int ackCounter = 0;
+	
+	private	ArrayBlockingQueue<MxReceiveBuffer> queue;
 
-	protected LowLatencyInputStream(MxSocket socket, MxAddress source,
+	protected LowLatencyDataInputStream(MxSocket socket, MxAddress source,
 			int endpointNumber, long matchData) throws IOException {
 		super(socket, source, endpointNumber, matchData);
 
@@ -22,17 +25,17 @@ public class LowLatencyInputStream extends InputStream {
 					Integer.toHexString(Matching.getPort(matchData)) 
 					+  " created.");
 		}
-		queue = new ArrayBlockingQueue<ReceiveBuffer>(Config.FLUSH_QUEUE_SIZE);
+		queue = new ArrayBlockingQueue<MxReceiveBuffer>(Config.RECEIVE_QUEUE_SIZE);
 
-		for(int i = 0; i < Config.FLUSH_QUEUE_SIZE; i++) {
+		for(int i = 0; i < Config.RECEIVE_QUEUE_SIZE; i++) {
 			postBuffer();
 		}
 
 	}
 
 	@Override
-	protected ReceiveBuffer fetchBuffer() throws IOException {
-		ReceiveBuffer buffer = null;
+	protected MxReceiveBuffer fetchBuffer() throws IOException {
+		MxReceiveBuffer buffer = null;
 
 		buffer = queue.poll();
 		
@@ -51,7 +54,7 @@ public class LowLatencyInputStream extends InputStream {
 						buffer.finish(1, true); // should finish immediately
 						return buffer;
 					}
-					ReceiveBuffer.recycle(buffer);
+					MxReceiveBuffer.recycle(buffer);
 					buffer = queue.poll();
 				} while (buffer != null);
 				closed = true;
@@ -61,15 +64,21 @@ public class LowLatencyInputStream extends InputStream {
 		}
 		// add a new buffer to the receive queue
 		postBuffer();
+		/*
+		if(++ackCounter >= ACK_INTERVAL) {
+			ackCounter = 0;
+			socket.sendAck(this);
+		}
+		*/
 		return buffer;
 	}
 
 	private void postBuffer() {
-		ReceiveBuffer buffer = ReceiveBuffer.get();
+		MxReceiveBuffer buffer = MxReceiveBuffer.get();
 		try {
 			buffer.post(endpointNumber, matchData, Matching.MASK_ALL);
 		} catch (IOException e) {
-			ReceiveBuffer.recycle(buffer);
+			MxReceiveBuffer.recycle(buffer);
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 			System.exit(1);
@@ -79,7 +88,7 @@ public class LowLatencyInputStream extends InputStream {
 
 	@Override
 	protected void cleanUp() {
-		ReceiveBuffer buffer = queue.poll();
+		MxReceiveBuffer buffer = queue.poll();
 		while(buffer != null) {
 			if(!buffer.cancel()) {
 				try {
@@ -88,7 +97,7 @@ public class LowLatencyInputStream extends InputStream {
 					// TODO ignore
 				}
 			}
-			ReceiveBuffer.recycle(buffer);
+			MxReceiveBuffer.recycle(buffer);
 			buffer = queue.poll();
 		}
 	}

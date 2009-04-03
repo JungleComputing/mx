@@ -21,7 +21,7 @@ void throwException(JNIEnv *env, const char *message) {
 void printAddress(const mx_endpoint_addr_t* addr) {
 	uint64_t nic;
 	uint32_t endpoint;
-	
+
 	mx_decompose_endpoint_addr(*addr, &nic, &endpoint);
 	//fprintf(stderr, "nic: %0" PRIx64 ", endpoint: %0" PRIx32 "\n", nic, endpoint);
 }
@@ -37,7 +37,7 @@ JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_init
 		//already initialized
 		return JNI_TRUE;
 	}
-	
+
 	// setup a global reference to the MxException class
 	localRef = (*env)->FindClass(env, "mxio/MxException");
 	if (localRef == NULL) {
@@ -51,7 +51,7 @@ JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_init
     	// JNI will also throw an exception here
         return JNI_FALSE;
     }
-    
+
 	// Attach an error handler that doesn't quit on errors automatically
 	mx_set_error_handler(MX_ERRORS_RETURN);
 	// now init the MX library
@@ -60,13 +60,13 @@ JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_init
 		throwException(env, mx_strerror(rc));
 		return JNI_FALSE;
 	}
-	
+
 	// setup endpoint structure
 	int i;
 	for (i = 0; i < MAX_ENDPOINTS; i++) {
 		endpoints[i] = NULL;
 	}
-		
+
 	initialized = 1;
 	return JNI_TRUE;
 }
@@ -75,7 +75,7 @@ JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_init
 JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_deInit
   (JNIEnv *env, jclass jcl) {
 	//TODO check whether all endpoints are closed? Or close them ourselves? Or do nothing?
-	
+
 	/* Finalize the MX library */
 	mx_finalize();
 	(*env)->DeleteGlobalRef(env, MxException);
@@ -118,7 +118,7 @@ JNIEXPORT void JNICALL Java_mxio_JavaMx_closeEndpoint
 		throwException(env, "Invalid endpoint");
 		return;
 	}
-	
+
 	/* close endpoint */
 	mx_wakeup(endpoints[endpointId]); // notify all threads that are blocked on this endpoint
 	mx_close_endpoint(endpoints[endpointId]);
@@ -137,9 +137,9 @@ JNIEXPORT jlong JNICALL Java_mxio_JavaMx_getMyNicId
 		throwException(env, "Invalid Endpoint");
 		return -1;
 	}
-	mx_get_endpoint_addr(endpoints[endpointId], &myAddr);	
+	mx_get_endpoint_addr(endpoints[endpointId], &myAddr);
 	mx_decompose_endpoint_addr(myAddr, &nicId, &epId);
-	
+
 	return nicId;
 }
 
@@ -149,15 +149,15 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_getMyEndpointId
 	mx_endpoint_addr_t myAddr;
 	uint64_t nicId;
 	uint32_t epId;
-	
+
 	if(endpointId < 0 || endpointId >= MAX_ENDPOINTS || endpoints[endpointId] == NULL) {
 		// not a valid endpoint
 		throwException(env, "Invalid Endpoint");
 		return -1;
 	}
-	mx_get_endpoint_addr(endpoints[endpointId], &myAddr);	
+	mx_get_endpoint_addr(endpoints[endpointId], &myAddr);
 	mx_decompose_endpoint_addr(myAddr, &nicId, &epId);
-	
+
 	return epId;
 }
 
@@ -176,9 +176,9 @@ JNIEXPORT jlong JNICALL Java_mxio_JavaMx_getNicId
 	rc = mx_hostname_to_nic_id(hostname, &nicId); //compiler warning here, because *hostname is const
 	(*env)->ReleaseStringUTFChars(env, name, hostname);
 	if(rc != MX_SUCCESS) {
-		throwException(env, mx_strerror(rc));		
+		throwException(env, mx_strerror(rc));
 		return 0;
-	}	
+	}
 	return nicId;
 }
 
@@ -209,7 +209,7 @@ JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_connect__IIJIIJ
 	}
 	//fprintf(stderr, "connecting to nic: %0" PRIx64 ", endpoint: %0" PRIx32 "\n", targetNicId, targetEndpointId);
 	/* now connect to the client */
-	rc = mx_connect(endpoints[endpointId], targetNicId, targetEndpointId, filter, (uint32_t)timeout, address); 
+	rc = mx_connect(endpoints[endpointId], targetNicId, targetEndpointId, filter, (uint32_t)timeout, address);
 	if(rc != MX_SUCCESS) {
 		//throwException(env, mx_strerror(rc));
 		return JNI_FALSE;
@@ -223,7 +223,7 @@ JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_connect__IIJIIJ
 JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_disconnect
   (JNIEnv *env, jclass jcl, jint link) {
 	// actually we could do nothing here, but let's check whether the link is present
-	
+
 	mx_endpoint_addr_t *address;
 	/* retrieve the address of the link */
 	address = getAddress(link);
@@ -242,13 +242,13 @@ JNIEXPORT void JNICALL Java_mxio_JavaMx_send__Ljava_nio_ByteBuffer_2IIIIIJ
 	mx_segment_t bufferDesc[1];
 	mx_request_t *request;
 	mx_endpoint_addr_t *target;
-	
+
 	if(endpointId < 0 || endpointId >= MAX_ENDPOINTS || endpoints[endpointId] == NULL) {
 		// not a valid endpoint
 		throwException(env, "Invalid Endpoint");
 		return;
 	}
-	
+
 	/* retrieve the target address */
 	target = getAddress(link);
 	if(target == NULL) {
@@ -259,7 +259,7 @@ JNIEXPORT void JNICALL Java_mxio_JavaMx_send__Ljava_nio_ByteBuffer_2IIIIIJ
 	//fprintf(stderr, "send() to:\n");
 	//printAddress(target);
 	//fprintf(stderr, "MatchData: %0" PRIx64 "\n", matchData);
-	
+
 	/* retrieve the request handle */
 	request = getRequest(handle);
 	if(request == NULL) {
@@ -267,7 +267,7 @@ JNIEXPORT void JNICALL Java_mxio_JavaMx_send__Ljava_nio_ByteBuffer_2IIIIIJ
 		throwException(env, "Invalid Handle");
 		return;
 	}
-	
+
 	if(bufferSize == 0) {
 		rc = mx_isend(endpoints[endpointId], NULL, 0, *target, matchData, NULL, request);
 	} else {
@@ -289,13 +289,13 @@ JNIEXPORT void JNICALL Java_mxio_JavaMx_sendSynchronous__Ljava_nio_ByteBuffer_2I
 	mx_segment_t bufferDesc[1];
 	mx_request_t *request;
 	mx_endpoint_addr_t *target;
-	
+
 	if(endpointId < 0 || endpointId >= MAX_ENDPOINTS || endpoints[endpointId] == NULL) {
 		// not a valid endpoint
 		throwException(env, "Invalid Endpoint");
 		return;
 	}
-	
+
 	/* retrieve the target address */
 	target = getAddress(link);
 	if(target == NULL) {
@@ -303,11 +303,11 @@ JNIEXPORT void JNICALL Java_mxio_JavaMx_sendSynchronous__Ljava_nio_ByteBuffer_2I
 		throwException(env, "Invalid Link");
 		return;
 	}
-	
+
 	//fprintf(stderr, "sendSync() to:\n");
 	//printAddress(target);
 	//fprintf(stderr, "MatchData: %0" PRIx64 "\n", matchData);
-	
+
 	/* retrieve the request handle */
 	request = getRequest(handle);
 	if(request == NULL) {
@@ -324,7 +324,7 @@ JNIEXPORT void JNICALL Java_mxio_JavaMx_sendSynchronous__Ljava_nio_ByteBuffer_2I
 		bufferDesc[0].segment_length = (uint32_t)bufferSize;
 		rc = mx_issend(endpoints[endpointId], bufferDesc, 1, *target, matchData, NULL, request);
 	}
-	
+
 	if(rc != MX_SUCCESS) {
 		throwException(env, mx_strerror(rc));
 		return;
@@ -337,7 +337,7 @@ JNIEXPORT void JNICALL Java_mxio_JavaMx_sendSynchronous__Ljava_nio_ByteBuffer_2I
 /* send() for 2 buffers */
 JNIEXPORT void JNICALL
 Java_mxio_JavaMx_send__Ljava_nio_ByteBuffer_2ILjava_nio_ByteBuffer_2IIIIJ
-  (JNIEnv *env, jclass jcl, 
+  (JNIEnv *env, jclass jcl,
 		  jobject buffer1, jint bufferSize1,
 		  jobject buffer2, jint bufferSize2,
 		  jint endpointId, jint link, jint handle, jlong matchData
@@ -346,7 +346,7 @@ Java_mxio_JavaMx_send__Ljava_nio_ByteBuffer_2ILjava_nio_ByteBuffer_2IIIIJ
 	mx_segment_t bufferDesc[2];
 	mx_request_t *request;
 	mx_endpoint_addr_t *target;
-		
+
 	if(endpointId < 0 || endpointId >= MAX_ENDPOINTS || endpoints[endpointId] == NULL) {
 		// not a valid endpoint
 		throwException(env, "Invalid Endpoint");
@@ -359,7 +359,7 @@ Java_mxio_JavaMx_send__Ljava_nio_ByteBuffer_2ILjava_nio_ByteBuffer_2IIIIJ
 		throwException(env, "Invalid Link");
 		return;
 	}
-	
+
 	/* retrieve the request handle */
 	request = getRequest(handle);
 	if(request == NULL) {
@@ -367,12 +367,12 @@ Java_mxio_JavaMx_send__Ljava_nio_ByteBuffer_2ILjava_nio_ByteBuffer_2IIIIJ
 		throwException(env, "Invalid Handle");
 		return;
 	}
-	
+
 	bufferDesc[0].segment_ptr = (*env)->GetDirectBufferAddress(env, buffer1);
 	bufferDesc[0].segment_length = (uint32_t)bufferSize1;
 	bufferDesc[1].segment_ptr = (*env)->GetDirectBufferAddress(env, buffer2);
 	bufferDesc[1].segment_length = (uint32_t)bufferSize2;
-	
+
 	rc = mx_isend(endpoints[endpointId], bufferDesc, 2, *target, matchData, NULL, request);
 	if(rc != MX_SUCCESS) {
 		throwException(env, mx_strerror(rc));
@@ -380,11 +380,11 @@ Java_mxio_JavaMx_send__Ljava_nio_ByteBuffer_2ILjava_nio_ByteBuffer_2IIIIJ
 	}
 	return;
 }
- 
+
 /* sendSynchronous() for SendBuffers */
 JNIEXPORT void JNICALL
 Java_mxio_JavaMx_sendSynchronous__Ljava_nio_ByteBuffer_2ILjava_nio_ByteBuffer_2IIIIJ
-  (JNIEnv *env, jclass jcl, 
+  (JNIEnv *env, jclass jcl,
 		  jobject buffer1, jint bufferSize1,
 		  jobject buffer2, jint bufferSize2,
 		  jint endpointId, jint link, jint handle, jlong matchData
@@ -393,7 +393,7 @@ Java_mxio_JavaMx_sendSynchronous__Ljava_nio_ByteBuffer_2ILjava_nio_ByteBuffer_2I
 	mx_segment_t bufferDesc[2];
 	mx_request_t *request;
 	mx_endpoint_addr_t *target;
-	
+
 	if(endpointId < 0 || endpointId >= MAX_ENDPOINTS || endpoints[endpointId] == NULL) {
 		// not a valid endpoint
 		throwException(env, "Invalid Endpoint");
@@ -406,7 +406,7 @@ Java_mxio_JavaMx_sendSynchronous__Ljava_nio_ByteBuffer_2ILjava_nio_ByteBuffer_2I
 		throwException(env, "Invalid Link");
 		return;
 	}
-	
+
 	/* retrieve the request handle */
 	request = getRequest(handle);
 	if(request == NULL) {
@@ -414,13 +414,13 @@ Java_mxio_JavaMx_sendSynchronous__Ljava_nio_ByteBuffer_2ILjava_nio_ByteBuffer_2I
 		throwException(env, "Invalid Handle");
 		return;
 	}
-	
+
 	bufferDesc[0].segment_ptr = (*env)->GetDirectBufferAddress(env, buffer1);
 	bufferDesc[0].segment_length = (uint32_t)bufferSize1;
 	bufferDesc[1].segment_ptr = (*env)->GetDirectBufferAddress(env, buffer2);
 	bufferDesc[1].segment_length = (uint32_t)bufferSize2;
-	
-	rc = mx_isend(endpoints[endpointId], bufferDesc, 2, *target, matchData, NULL, request);
+
+	rc = mx_issend(endpoints[endpointId], bufferDesc, 2, *target, matchData, NULL, request);
 	if(rc != MX_SUCCESS) {
 		throwException(env, mx_strerror(rc));
 		return;
@@ -456,14 +456,14 @@ JNIEXPORT void JNICALL Java_mxio_JavaMx_recv__Ljava_nio_ByteBuffer_2IIIIJJ
 		throwException(env, "Invalid Handle");
 		return;
 	}
-	
+
 	if (bufferSize == 0) {
-		rc = mx_irecv(endpoints[endpointId], NULL, 0, matchData, matchMask, NULL, request);		
+		rc = mx_irecv(endpoints[endpointId], NULL, 0, matchData, matchMask, NULL, request);
 	} else {
 		buffer_desc[0].segment_ptr = (*env)->GetDirectBufferAddress(env, buffer) + offset;
 		buffer_desc[0].segment_length = (uint32_t)bufferSize;
 		rc = mx_irecv(endpoints[endpointId], buffer_desc, 1, matchData, matchMask, NULL, request);
-	}	
+	}
 
 	if(rc != MX_SUCCESS) {
 		throwException(env, mx_strerror(rc));
@@ -500,7 +500,7 @@ JNIEXPORT void JNICALL Java_mxio_JavaMx_recv__Ljava_nio_ByteBuffer_2IILjava_nio_
 		throwException(env, "Invalid Handle");
 		return;
 	}
-	
+
 	buffer_desc[0].segment_ptr = (*env)->GetDirectBufferAddress(env, buffer) + offset;
 	buffer_desc[0].segment_length = (uint32_t)bufferSize;
 	buffer_desc[1].segment_ptr = (*env)->GetDirectBufferAddress(env, buffer2) + offset2;
@@ -531,7 +531,7 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_wait__IIJ
 	uint32_t result;
 
 	mx_request_t *request;
-	
+
 	if(endpointId < 0 || endpointId >= MAX_ENDPOINTS || endpoints[endpointId] == NULL) {
 		// not a valid endpoint
 		throwException(env, "Invalid Endpoint");
@@ -544,7 +544,7 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_wait__IIJ
 		throwException(env, "Invalid Handle");
 		return -1;
 	}
-	
+
 	//fprintf(stderr, "JavaMx::wait: waiting for handle %d\n", handle);
 	rc = mx_wait(endpoints[endpointId], request, (uint32_t)timeout, &status, &result);
 	if(rc != MX_SUCCESS) {
@@ -555,14 +555,14 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_wait__IIJ
 		// Request is not finished yet
 		return -1;
 	}
-	
+
 	// TODO this block of code doesn't look coorrect to me
 	if(status.code != MX_STATUS_SUCCESS) {
 		// some kind of error occured
 		throwException(env, mx_strstatus(status.code));
 		return -1;
 	}
-	
+
 	return (jint)(status.xfer_length); // Note: MX documentation incorrect about status structure field names, see header files instead
 }
 
@@ -574,7 +574,7 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_test__II
 	uint32_t result;
 
 	mx_request_t *request;
-	
+
 	if(endpointId < 0 || endpointId >= MAX_ENDPOINTS || endpoints[endpointId] == NULL) {
 		// not a valid endpoint
 		throwException(env, "Invalid Endpoint");
@@ -589,7 +589,7 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_test__II
 		throwException(env, "Invalid Handle");
 		return -1;
 	}
-	
+
 	rc = mx_test(endpoints[endpointId], request, &status, &result);
 	if(rc != MX_SUCCESS) {
 		throwException(env, mx_strerror(rc));
@@ -603,7 +603,7 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_test__II
 		throwException(env, mx_strstatus(rc));
 		return -1;
 	}
-	
+
 	return (jint)(status.xfer_length); // Note: MX documentation incorrect about status structure field names, see header files instead
 }
 
@@ -617,7 +617,7 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_test__III
 jint i;
 
 	mx_request_t *request;
-	
+
 	if(endpointId < 0 || endpointId >= MAX_ENDPOINTS || endpoints[endpointId] == NULL) {
 		// not a valid endpoint
 		throwException(env, "Invalid Endpoint");
@@ -632,7 +632,7 @@ jint i;
 		throwException(env, "Invalid Handle");
 		return -1;
 	}
-	
+
 	for(i = 0; i < attempts; i++) {
 		rc = mx_test(endpoints[endpointId], request, &status, &result);
 		if(rc != MX_SUCCESS) {
@@ -685,11 +685,11 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_iprobe
 /* probe() */
 JNIEXPORT jint JNICALL Java_mxio_JavaMx_probe
   (JNIEnv *env, jclass jcl, jint endpointId, jlong timeout, jlong matchData, jlong matchMask) {
-	
+
 	mx_status_t status;
 	uint32_t result;
 	mx_return_t ret;
-	
+
 	if(endpointId < 0 || endpointId >= MAX_ENDPOINTS || endpoints[endpointId] == NULL) {
 		// not a valid endpoint
 		throwException(env, "Invalid Endpoint");
@@ -723,7 +723,7 @@ JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_cancel
 		throwException(env, "Invalid Endpoint");
 		return JNI_FALSE;
 	}
-	
+
 	/* retrieve the request handle */
 	request = getRequest(handle);
 	if(request == NULL) {
@@ -749,7 +749,7 @@ JNIEXPORT void JNICALL Java_mxio_JavaMx_forget
 		throwException(env, "Invalid Endpoint");
 		return;
 	}
-	
+
 	/* retrieve the request handle */
 	request = getRequest(handle);
 	if(request == NULL) {
@@ -785,7 +785,7 @@ JNIEXPORT jlong JNICALL Java_mxio_JavaMx_waitForMessage
 		throwException(env, "Invalid Endpoint");
 		return 0;
 	}
-	
+
 	/* retrieve the request handle */
 	mx_probe(endpoints[endpointId], (uint32_t)timeout, matchData, matchMask, &status, &result);
 	if(result == 0) {
@@ -806,7 +806,7 @@ JNIEXPORT jlong JNICALL Java_mxio_JavaMx_pollForMessage
 		throwException(env, "Invalid Endpoint");
 		return 0;
 	}
-	
+
 	/* retrieve the request handle */
 	mx_iprobe(endpoints[endpointId], matchData, matchMask, &status, &result);
 	if(result == 0) {

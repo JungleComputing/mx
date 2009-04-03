@@ -11,14 +11,14 @@ public final class Selector {
 	static final Logger logger = LoggerFactory
     .getLogger(Selector.class);
 	
-	LinkedBlockingQueue<SelectableInputStream> queue;
+	LinkedBlockingQueue<SelectableDataInputStream> queue;
 	
 	public Selector() {
-		queue = new LinkedBlockingQueue<SelectableInputStream>();
+		queue = new LinkedBlockingQueue<SelectableDataInputStream>();
 	}
 	
-	public SelectableInputStream select() {
-		SelectableInputStream s = null;
+	public SelectableDataInputStream select() {
+		SelectableDataInputStream s = null;
 		do {
 			try {
 				s = queue.take();
@@ -34,11 +34,11 @@ public final class Selector {
 		return s;
 	}
 	
-	public SelectableInputStream select(long timeout) {
+	public SelectableDataInputStream select(long timeout) {
 		if(logger.isDebugEnabled()) {
 			logger.debug("select(t)");
 		}
-		SelectableInputStream s = null;
+		SelectableDataInputStream s = null;
 		try {
 			s = queue.poll(timeout, TimeUnit.MILLISECONDS);
 		} catch (InterruptedException e) {
@@ -57,8 +57,8 @@ public final class Selector {
 		return s;
 	}
 	
-	public SelectableInputStream poll() {
-		SelectableInputStream s;
+	public SelectableDataInputStream poll() {
+		SelectableDataInputStream s;
 		s = queue.poll();
 		if(s == null) {
 			return null;
@@ -70,7 +70,7 @@ public final class Selector {
 		return s;
 	}
 		
-	void ready(SelectableInputStream s) {
+	void ready(SelectableDataInputStream s) {
 		while(true) {
 			try {
 				queue.put(s);

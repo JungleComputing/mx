@@ -1,7 +1,6 @@
 
 package ibis.ipl.impl.mx;
 
-import ibis.io.BufferedArrayInputStream;
 import ibis.io.Conversion;
 import ibis.ipl.MessageUpcall;
 import ibis.ipl.PortType;
@@ -13,11 +12,9 @@ import ibis.ipl.impl.ReceivePort;
 import ibis.ipl.impl.ReceivePortConnectionInfo;
 import ibis.ipl.impl.ReceivePortIdentifier;
 import ibis.ipl.impl.SendPortIdentifier;
-import ibis.ipl.impl.mx.MxDefaultReceivePort.ConnectionHandler;
 import ibis.util.ThreadPool;
 
 import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.Properties;
@@ -28,7 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import mxio.ConnectionRequest;
-import mxio.InputStream;
+import mxio.DataInputStream;
 import mxio.Selector;
 
 /* based on the ReceivePort of TCPIbis */
@@ -42,24 +39,19 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 	class ConnectionHandler extends ReceivePortConnectionInfo 
 	implements MxProtocol {
 		
-		private final InputStream is;
+		private final DataInputStream is;
 		MxSelectingReceivePort port;
 
-		ConnectionHandler(SendPortIdentifier origin, InputStream is,
-				MxSelectingReceivePort port, BufferedArrayInputStream in)
+		ConnectionHandler(SendPortIdentifier origin, MxSelectingReceivePort port, 
+				DataInputStream in)
 				throws IOException {
 			super(origin, port, in);
 			this.port = port;
-			this.is = is;
+			this.is = in;
 		}
 
 		public void close(Throwable e) {
 			super.close(e);
-			try {
-				is.close();
-			} catch (Throwable x) {
-				// ignore
-			}
 		}
 
 		protected void upcallCalledFinish() {
@@ -313,7 +305,7 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 		int result = connectionAllowed(origin, sp);
 
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		DataOutputStream out = new DataOutputStream(baos);        
+		java.io.DataOutputStream out = new java.io.DataOutputStream(baos);        
 		try {
 			out.writeInt(result);
 			if (result == ReceivePort.TYPE_MISMATCH) {
@@ -327,7 +319,7 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 		req.setReplyMessage(baos.toByteArray());    	
 
 		if (result == ACCEPTED) {
-			InputStream is = req.accept(true);
+			DataInputStream is = req.accept(true);
 			if(is == null) {
 				result = DENIED;
 				this.lostConnection(origin, new IOException("ChannelManager denied connection"));
@@ -335,7 +327,7 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 				synchronized(this) {
 					try {
 						@SuppressWarnings("unused")
-						ConnectionHandler conn = new ConnectionHandler(origin, is, this, new BufferedArrayInputStream(is, BUFSIZE));
+						ConnectionHandler conn = new ConnectionHandler(origin, this, is);
 
 						if (is.attach(selector) == false) {	
 							throw new IOException("cannot attach stream to selector");
@@ -387,7 +379,7 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 		if (logger.isDebugEnabled()) {
 			logger.debug("NextIOAction");
 		}
-		InputStream is;
+		DataInputStream is;
 		if(timeout == 0) {
 			is = selector.select();
 		} else {
@@ -418,7 +410,7 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 		return true;
 	}
 
-	private ConnectionHandler findHandler(InputStream is) {
+	private ConnectionHandler findHandler(DataInputStream is) {
 		ConnectionHandler[] connections =  connections();
 		for(int i = 0; i < connections.length; i++) {
 			if(connections[i].is == is) {

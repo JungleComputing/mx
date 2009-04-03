@@ -6,22 +6,22 @@ import java.nio.channels.ClosedChannelException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MulticastOutputStream extends OutputStream {
+public class MulticastDataOutputStream extends DataOutputStream {
 	
 	private static final Logger logger = LoggerFactory
-    .getLogger(MulticastOutputStream.class);
+    .getLogger(MulticastDataOutputStream.class);
 	
 	static final int INITIAL_CONNECTIONS_SIZE = 8;
 	
-	private OutputStream[] connections = new OutputStream[INITIAL_CONNECTIONS_SIZE];
+	private DataOutputStream[] connections = new DataOutputStream[INITIAL_CONNECTIONS_SIZE];
 	int nrOfConnections = 0;
 	
-	public MulticastOutputStream() {
+	public MulticastDataOutputStream() {
 		super();
 	}
 
 	@Override
-	long doSend(SendBuffer buffer) throws IOException {
+	long doSend(MxSendBuffer buffer) throws IOException {
         if (logger.isDebugEnabled()) {
         	logger.debug("doSend");
 		}
@@ -34,11 +34,11 @@ public class MulticastOutputStream extends OutputStream {
 		if(nrOfConnections == 1) {
 			connections[0].doSend(buffer);
 		} else {
-			SendBuffer[] copies = SendBuffer.replicate(buffer, nrOfConnections);
+			MxSendBuffer[] copies = MxSendBuffer.replicate(buffer, nrOfConnections);
 			for(int i = 0; i < nrOfConnections; i++) {
 				try {
-				connections[i].doSend(copies[i]);
-				SendBuffer.recycle(buffer);
+				connections[i].bytesWritten += connections[i].doSend(copies[i]);
+				MxSendBuffer.recycle(buffer);
 				} catch (IOException e) {
 					if(cwe == null) {
 						cwe = new CollectedWriteException();
@@ -96,12 +96,12 @@ public class MulticastOutputStream extends OutputStream {
 		nrOfConnections = 0;
 	}
 
-	public final void add(OutputStream connection) throws IOException {
+	public final void add(DataOutputStream connection) throws IOException {
 		// end all current transfers
 		flush();
 	
 		if (nrOfConnections == connections.length) {
-			OutputStream[] newConnections = new OutputStream[connections.length * 2];
+			DataOutputStream[] newConnections = new DataOutputStream[connections.length * 2];
             for (int i = 0; i < connections.length; i++) {
                 newConnections[i] = connections[i];
             }
@@ -116,7 +116,7 @@ public class MulticastOutputStream extends OutputStream {
         nrOfConnections++;
 	}
 
-	public final void remove(OutputStream connection) throws IOException {
+	public final void remove(DataOutputStream connection) throws IOException {
 		flush();
 		if (logger.isDebugEnabled()) {
 			logger.debug("remove");
@@ -125,7 +125,7 @@ public class MulticastOutputStream extends OutputStream {
 		doRemove(connection);
     }
 	
-	private final void doRemove(OutputStream connection) throws IOException {
+	private final void doRemove(DataOutputStream connection) throws IOException {
         for (int i = 0; i < nrOfConnections; i++) {
             if (connections[i] == connection) {
                 if (logger.isDebugEnabled()) {
@@ -144,8 +144,8 @@ public class MulticastOutputStream extends OutputStream {
 	
 	@Override
 	public String toString() {
-		String result = "MulticastOutputStream: {";
-		for(OutputStream os: connections) {
+		String result = "MulticastDataOutputStream: {";
+		for(DataOutputStream os: connections) {
 			result += " <" + os.toString() + ">";
 		}
 		result += " }";
