@@ -54,7 +54,8 @@ public class DataOutputStreamImpl extends DataOutputStream {
 				i++;
 			}
 			*/
-			msgSize = JavaMx.test(endpointNumber, handles[head], Config.POLLS);
+			msgSize = JavaMx.test(endpointNumber, handles[head], Config.SPOLLS);
+
 			while(msgSize < 0) {
 				msgSize = JavaMx.wait(endpointNumber, handles[head]);
 			}

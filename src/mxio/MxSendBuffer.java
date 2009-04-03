@@ -209,10 +209,14 @@ final class MxSendBuffer implements Config {
 	/**
 	 * returns the number of remaining bytes in the bytebuffers
 	 */
-	long remaining() {
+	int remaining() {
 		return payload.remaining();
 	}
 
+	int position() {
+		return payload.position();
+	}
+	
 	boolean isEmpty() {
 		return payload.position() == 0;
 	}

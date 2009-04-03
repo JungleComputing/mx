@@ -160,7 +160,7 @@ final class MxReceiveBuffer {
 					msgSize = JavaMx.test(endpointNumber, myHandle);
 					i++;
 				}*/
-				msgSize = JavaMx.test(endpointNumber, myHandle, Config.POLLS);
+				msgSize = JavaMx.test(endpointNumber, myHandle, Config.RPOLLS);
 //				nt += System.nanoTime();
 //				polls +=i;
 //				ntime += nt;

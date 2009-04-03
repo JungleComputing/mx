@@ -7,8 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public abstract class DataOutputStream extends ibis.io.DataOutputStream {
-	//FIXME prepare for use in multicastStream
-	public static final int BUFFER_SIZE = mxio.Config.BUFFER_SIZE;
 	
 	private static final Logger logger = LoggerFactory
     .getLogger(DataOutputStream.class);
@@ -16,7 +14,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 	private MxSendBuffer buffer;
 
 	long bytesWritten = 0;
-	int bytesInBuffer = 0;
+	boolean flushed = true;
 
 	boolean closed = false;
 	boolean receiverClosed = false;
@@ -93,6 +91,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 
 		// get a new buffer
 		buffer = MxSendBuffer.get();
+		flushed = false;
 	}
 
 	@Override
@@ -108,6 +107,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			send();
 		}
 		doFlush();
+		flushed = true;
 	}
 
 	public int bufferSize() {
@@ -147,6 +147,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			}
 		}
 		buffer.payload.put(value);
+		startupSend();
 	}
 
 	public void writeArray(byte[] array, int off, int len) throws IOException {
@@ -170,6 +171,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			offset += size;
 			remaining -= size;
 		}
+		startupSend();
 	}
 
 	public void write(int value) throws IOException {
@@ -212,6 +214,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			offset += size;
 			remaining -= size;
 		}		
+		startupSend();
 	}
 
 	@Override
@@ -237,6 +240,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			offset += size;
 			remaining -= size;
 		}
+		startupSend();
 	}
 
 	@Override
@@ -261,6 +265,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			offset += size;
 			remaining -= size;
 		}
+		startupSend();
 	}
 
 	@Override
@@ -285,6 +290,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			offset += size;
 			remaining -= size;
 		}
+		startupSend();
 	}
 
 	@Override
@@ -309,6 +315,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			offset += size;
 			remaining -= size;
 		}
+		startupSend();
 	}
 
 	@Override
@@ -333,12 +340,16 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			offset += size;
 			remaining -= size;
 		}
+		startupSend();
 	}
 
 	@Override
 	public void writeBoolean(boolean value) throws IOException {
-		// TODO Auto-generated method stub
-		
+		if(true) {
+			writeByte((byte)1);
+		} else {
+			writeByte((byte)0);
+		}
 	}
 
 	@Override
@@ -361,6 +372,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			}
 		}
 		buffer.payload.putChar(value);
+		startupSend();
 	}
 
 	@Override
@@ -383,6 +395,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			}
 		}
 		buffer.payload.putDouble(value);
+		startupSend();
 	}
 
 	@Override
@@ -405,6 +418,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			}
 		}
 		buffer.payload.putFloat(value);
+		startupSend();
 	}
 
 	@Override
@@ -427,6 +441,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			}
 		}
 		buffer.payload.putInt(value);
+		startupSend();
 	}
 
 	@Override
@@ -449,6 +464,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			}
 		}
 		buffer.payload.putLong(value);
+		startupSend();
 	}
 
 	@Override
@@ -471,5 +487,14 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			}
 		}
 		buffer.payload.putShort(value);
+		startupSend();
 	}
+	
+	void startupSend() throws IOException {
+//		if(flushed && buffer.payload.position() > Config.START_BUFFER_SIZE) {
+		if(buffer.payload.position() > Config.START_BUFFER_SIZE) {
+			send();
+		}
+	}
+	
 }
