@@ -14,11 +14,11 @@ JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_00024LinkManager_init
 	lmBlocks = maxBlocks;
 	lmBlockSize = blockSize;
 	lmBlocksInUse = 0;
-	links = (mx_endpoint_addr_t **) malloc(lmBlocks * sizeof(mx_request_t *));
+	links = (mx_endpoint_addr_t **) malloc(lmBlocks * sizeof(mx_endpoint_addr_t *));
 	if (links == NULL) {
 		return JNI_FALSE;
 	}
-	return JNI_TRUE;	
+	return JNI_TRUE;
 }
 
 /* LinkManager.addBlock() */
@@ -27,7 +27,7 @@ JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_00024LinkManager_addBlock
 	if(lmBlocksInUse >= lmBlocks) {
 		return JNI_FALSE;
 	}
-	links[lmBlocksInUse] = (mx_endpoint_addr_t *) malloc(lmBlockSize * sizeof(mx_request_t));
+	links[lmBlocksInUse] = (mx_endpoint_addr_t *) malloc(lmBlockSize * sizeof(mx_endpoint_addr_t));
 	if (links[lmBlocksInUse] == NULL) {
 		return JNI_FALSE;
 	}
