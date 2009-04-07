@@ -18,6 +18,8 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 
 	boolean closed = false;
 	boolean receiverClosed = false;
+	
+	
 
 	MulticastDataOutputStream mcStream = null;
 
@@ -44,10 +46,8 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 				if (!buffer.isEmpty()) {
 					buffer.flip();
 					bytesWritten += doSend(buffer);
-					doFlush();
 				} else {
 					MxSendBuffer.recycle(buffer);
-					doFlush();
 				}
 				buffer = null;
 			} catch (IOException e1) {
@@ -55,6 +55,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			}
 		}
 		try {
+			doFlush();
 			doClose();
 		} catch (IOException e) {
 			// ignore
@@ -103,6 +104,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			doClose();
 			throw new IOException("Stream is closed by receiver");
 		}
+		
 		if(buffer != null) {
 			send();
 		}

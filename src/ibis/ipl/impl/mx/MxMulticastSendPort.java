@@ -20,117 +20,139 @@ import org.slf4j.LoggerFactory;
 final class MxMulticastSendPort extends MxSendPort {
 
 	static final Logger logger = LoggerFactory
-    .getLogger(MxMulticastSendPort.class);
-	
-    private class Conn extends SendPortConnectionInfo {
-    	DataOutputStream os;
+	.getLogger(MxMulticastSendPort.class);
 
-        Conn(DataOutputStream os, MxMulticastSendPort port, ReceivePortIdentifier target)
-                throws IOException {
-            super(port, target);
-            this.os = os;
-            mcos.add(os);
-        }
+	private class Conn extends SendPortConnectionInfo {
+		DataOutputStream os;
 
-        public void closeConnection() {
-            try {
-                os.close();
-            } catch (Throwable e) {
-                // ignored
-            } finally {
-                try {
-                    mcos.remove(os);
-                } catch (IOException e) {
-                    // ignore
-                }
-            }
-        }
-    }
+		Conn(DataOutputStream os, MxMulticastSendPort port, ReceivePortIdentifier target)
+		throws IOException {
+			super(port, target);
+			this.os = os;
+			if(mcos != null) {
+				mcos.add(os);
+			}
+		}
 
-    //final OutputStreamSplitter splitter;
-    final MulticastDataOutputStream mcos;
+		public void closeConnection() {
+			try {
+				os.close();
+			} catch (Throwable e) {
+				// ignored
+			} finally {
+				try {
+					if(mcos != null) {
+						mcos.remove(os);
+					}
+				} catch (IOException e) {
+					// ignore
+				}
+			}
+		}
+	}
 
-    MxMulticastSendPort(Ibis ibis, PortType type, String name,
-            SendPortDisconnectUpcall cU, Properties props) throws IOException {
-        super(ibis, type, name, cU, props);
-        
-        //TODO bufsize
-        mcos = new MulticastDataOutputStream();
-        initStream(mcos);
-    }
+	//final OutputStreamSplitter splitter;
+	final MulticastDataOutputStream mcos;
+	private DataOutputStream dos;
 
-    protected long totalWritten() {
-        return mcos.bytesWritten();
-    }
+	MxMulticastSendPort(Ibis ibis, PortType type, String name,
+			SendPortDisconnectUpcall cU, Properties props) throws IOException {
+		super(ibis, type, name, cU, props);
 
-    protected void resetWritten() {
-        mcos.resetBytesWritten();
-    }
+		//TODO bufsize
+		if(type.hasCapability(PortType.CONNECTION_ONE_TO_ONE) ||
+				type.hasCapability(PortType.CONNECTION_MANY_TO_ONE)) {
+			mcos = null;
+			dos = null;
+		} else {
+			mcos = new MulticastDataOutputStream();
+			dos = mcos;
+			initStream(dos);
+		}
+	}
 
-    protected SendPortConnectionInfo doConnect(ReceivePortIdentifier receiver,
-            long timeoutMillis, boolean fillTimeout) throws IOException {
+	protected long totalWritten() {
+		if(dos == null) {
+			return 0;
+		}
+		return dos.bytesWritten();
+	}
 
-    	DataOutputStream os = 
-    		((MxIbis) ibis).connect(this, receiver, (int) timeoutMillis,
-                fillTimeout);
-        Conn c = new Conn(os, this, receiver);
-        if (out != null) {
-            out.writeByte(NEW_RECEIVER);
-        }
-        initStream(mcos);
-        return c;
-    }
+	protected void resetWritten() {
+		if(dos != null) {
+			dos.resetBytesWritten();
+		}
+	}
 
-    protected void announceNewMessage() throws IOException {
-    	if (logger.isDebugEnabled()) {
-            logger.debug("Announcing new message");
-        }
-        out.writeByte(NEW_MESSAGE);
-        if (type.hasCapability(PortType.COMMUNICATION_NUMBERED)) {
-            out.writeLong(ibis.registry().getSequenceNumber(name));
-        }
-    }
+	protected SendPortConnectionInfo doConnect(ReceivePortIdentifier receiver,
+			long timeoutMillis, boolean fillTimeout) throws IOException {
 
-    protected void handleSendException(WriteMessage w, IOException x) {
-        ReceivePortIdentifier[] ports = null;
-        synchronized (this) {
-            ports = receivers.keySet()
-                            .toArray(new ReceivePortIdentifier[0]);
-        }
+		DataOutputStream os = 
+			((MxIbis) ibis).connect(this, receiver, (int) timeoutMillis,
+					fillTimeout);
+		Conn c = new Conn(os, this, receiver);
+		if (out != null) {
+			out.writeByte(NEW_RECEIVER);
+		}
 
-        if (x instanceof CollectedWriteException) {
-        	CollectedWriteException e = (CollectedWriteException) x;
+		if(type.hasCapability(PortType.CONNECTION_ONE_TO_ONE) ||
+				type.hasCapability(PortType.CONNECTION_MANY_TO_ONE)) {
+			dos = os;
+		}
+		initStream(dos);
+		return c;
+	}
 
-            Exception[] exceptions = e.getExceptions();
-            mxio.DataOutputStream[] streams = e.getStreams();
+	protected void announceNewMessage() throws IOException {
+//		if (logger.isDebugEnabled()) {
+//			logger.debug("Announcing new message");
+//		}
+		out.writeByte(NEW_MESSAGE);
+		if (type.hasCapability(PortType.COMMUNICATION_NUMBERED)) {
+			out.writeLong(ibis.registry().getSequenceNumber(name));
+		}
+	}
 
-            for (int i = 0; i < ports.length; i++) {
-                Conn c = (Conn) getInfo(ports[i]);
-                for (int j = 0; j < streams.length; j++) {
-                    if (c.os == streams[j]) {
-                        lostConnection(ports[i], exceptions[j]);
-                        break;
-                    }
-                }
-            }
-        } else {
-            // Just close all connections. ???
-            for (int i = 0; i < ports.length; i++) {
-                lostConnection(ports[i], x);
-            }
-        }
-    }
+	protected void handleSendException(WriteMessage w, IOException x) {
+		ReceivePortIdentifier[] ports = null;
+		synchronized (this) {
+			ports = receivers.keySet()
+			.toArray(new ReceivePortIdentifier[0]);
+		}
 
-    protected void closePort() {
+		if (x instanceof CollectedWriteException) {
+			CollectedWriteException e = (CollectedWriteException) x;
 
-        try {
-            out.close();
-            mcos.close();
-        } catch (Throwable e) {
-            // ignored
-        }
+			Exception[] exceptions = e.getExceptions();
+			mxio.DataOutputStream[] streams = e.getStreams();
 
-        out = null;
-    }
+			for (int i = 0; i < ports.length; i++) {
+				Conn c = (Conn) getInfo(ports[i]);
+				for (int j = 0; j < streams.length; j++) {
+					if (c.os == streams[j]) {
+						lostConnection(ports[i], exceptions[j]);
+						break;
+					}
+				}
+			}
+		} else {
+			// Just close all connections. ???
+					for (int i = 0; i < ports.length; i++) {
+						lostConnection(ports[i], x);
+					}
+		}
+	}
+
+	protected void closePort() {
+
+		try {
+			out.close();
+			mcos.close();
+		} catch (Throwable e) {
+			// ignored
+		}
+
+		out = null;
+	}
 
 }

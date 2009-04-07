@@ -185,11 +185,17 @@ implements MxListener {
 				case ReceivePort.NOT_PRESENT:
 				case ReceivePort.DISABLED:
 					// and try again if we did not reach the timeout...
+					
 					if (timeout > 0 && System.currentTimeMillis()
 							> startTime + timeout) {
 						throw new ConnectionTimedOutException(
 								"Could not connect", rip);
 					}
+					try {
+							Thread.sleep(timeout);
+						} catch (InterruptedException e) {
+							// ignore
+						}
 					break;
 				case -1:
 					throw new IOException("Encountered EOF in MxIbis.connect");
@@ -209,7 +215,7 @@ implements MxListener {
 			}
 			if(fillTimeout) {
 				try {
-					Thread.sleep(100);
+					Thread.sleep(1000);
 				} catch (InterruptedException e) {
 					// ignore
 				}

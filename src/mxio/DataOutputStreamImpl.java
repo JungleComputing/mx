@@ -2,29 +2,26 @@ package mxio;
 
 import java.io.IOException;
 
+import mxio.JavaMx.HandleManager;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DataOutputStreamImpl extends DataOutputStream {
 
 	private static final Logger logger = LoggerFactory
-    .getLogger(DataOutputStreamImpl.class);
-
-	private MxAddress target;
-	private int endpointNumber;
-	private long matchData;
-	private int myLink;
+	.getLogger(DataOutputStreamImpl.class);
 
 	private class FlushQueue {
 		int[] handles;
 		MxSendBuffer[] queue;
-		
+
 		int head;
 		int elements;
-		
+
 		int size;
 		private boolean destroyed = false;
-		
+
 		FlushQueue(int size) {
 			head = elements = 0;
 			this.size = size;
@@ -43,9 +40,9 @@ public class DataOutputStreamImpl extends DataOutputStream {
 			if (elements == 0) {
 				return null;
 			}
-			
+
 			MxSendBuffer buf = queue[head];
-			
+
 			int msgSize = -1;
 			/*
 			int i = 0;
@@ -53,17 +50,17 @@ public class DataOutputStreamImpl extends DataOutputStream {
 				msgSize = JavaMx.test(endpointNumber, handles[head]);
 				i++;
 			}
-			*/
+			 */
 			msgSize = JavaMx.test(endpointNumber, handles[head], Config.SPOLLS);
 
 			while(msgSize < 0) {
 				msgSize = JavaMx.wait(endpointNumber, handles[head]);
 			}
-			
+
 			head = (head+1) % size;
 			elements--;
 			if(msgSize == -1) {
-			//	error
+				//	error
 				throw new Error("send error 1b");
 			}
 			if (msgSize != buf.msgSize() ) {
@@ -72,33 +69,38 @@ public class DataOutputStreamImpl extends DataOutputStream {
 			}
 			return buf;
 		}
-		
-		boolean doSend(MxSendBuffer buffer) throws MxException {
+
+		boolean doSend(MxSendBuffer buffer, boolean synchronous) throws MxException {
 			if(elements == size) {
 				return false;
 			}
-			
+
 			int tail = (head + elements) % size;
 			queue[tail] = buffer;
 			elements++;
-						
-			//JavaMx.send(buffer.header.buf, buffer.header.capacity(), buffer.payload.buf, buffer.payload.remaining(), endpointNumber, 
-//					myLink, handles[tail], matchData);
-			JavaMx.send(buffer.header.buf, buffer.header.capacity(), buffer.payload.buf, buffer.payload.remaining(), endpointNumber, 
+
+			if(synchronous) {
+				JavaMx.sendSynchronous(buffer.header.buf, buffer.header.capacity(), buffer.payload.buf, buffer.payload.remaining(), endpointNumber, 
+						myLink, handles[tail], matchData);
+			} else {
+				JavaMx.send(buffer.header.buf, buffer.header.capacity(), buffer.payload.buf, buffer.payload.remaining(), endpointNumber, 
 					myLink, handles[tail], matchData);
+			}
+
 			return true;
+
 		}
 
 		boolean isEmpty() {
 			return elements == 0;
 		}
-		
+
 		void destroy() {
 			if(!destroyed ) {
-				for (int i = head; i < elements; i = (i+1)%size) {
-					JavaMx.forget(endpointNumber, handles[i]);
+				for (int i = head; i < head + elements; i++) {
+					JavaMx.forget(endpointNumber, handles[i%size]);
 				}
-				
+
 				for (int i = 0; i < size; i++) {
 					JavaMx.handles.releaseHandle(handles[i]);
 				}
@@ -110,15 +112,23 @@ public class DataOutputStreamImpl extends DataOutputStream {
 			destroyed = true;
 		}
 	}
-	
+
 	private FlushQueue flushQueue;
+
+	private MxAddress target;
+	private int endpointNumber;
+	private long matchData;
+	private int myLink;
 	
 	private int port;
+	
+	private static final int syncRate = Config.SYNC_RATE;
+	private int sync = 0;
 	
 	protected DataOutputStreamImpl(MxSocket socket, int endpointNumber, int link,
 			long matchData, MxAddress target) {
 		super();
-		
+
 		flushQueue = new FlushQueue(Config.FLUSH_QUEUE_SIZE);
 		this.endpointNumber = endpointNumber;
 		this.matchData = matchData;
@@ -126,12 +136,19 @@ public class DataOutputStreamImpl extends DataOutputStream {
 		this.port = Matching.getPort(matchData);
 		myLink = link;
 	}
-	
+
 	long doSend(MxSendBuffer buffer) throws IOException {
 		buffer.setPort(port);
 		long size = buffer.remaining();
 		
-		while(!flushQueue.doSend(buffer)) {
+		sync++;
+		boolean sendSync = false;
+		if(sync == syncRate) {
+			sync =0;
+			sendSync = true;
+		}
+		
+		while(!flushQueue.doSend(buffer, sendSync)) {
 			MxSendBuffer flushedBuf = flushHead();
 			if(flushedBuf != null) {
 				MxSendBuffer.recycle(flushedBuf);
@@ -140,24 +157,25 @@ public class DataOutputStreamImpl extends DataOutputStream {
 		
 		return size;
 	}
-		
+
 	void doFlush() throws IOException {
 		MxSendBuffer buffer;	
-		
+
 		while(!flushQueue.isEmpty()) {
 			buffer = flushHead();
 			if(buffer != null) {
 				MxSendBuffer.recycle(buffer);
 			}
 		}
+		//fragmentNumber = 0;
 	}
-	
+
 	MxSendBuffer flushHead() throws MxException {
 		return flushQueue.flushHead();
 	}
-	
-	
-	
+
+
+
 	void doClose() throws IOException {
 		closed = true;
 		if(!receiverClosed) {
@@ -165,7 +183,7 @@ public class DataOutputStreamImpl extends DataOutputStream {
 		}
 		flushQueue.destroy();
 	}
-	
+
 	protected void receiverClosedConnection() {
 		if (closed || receiverClosed) {
 			return;
@@ -178,8 +196,8 @@ public class DataOutputStreamImpl extends DataOutputStream {
 			// ignore
 		}
 	}
-	
-//	 My OutputStream closes, notify the receiver
+
+	//	 My OutputStream closes, notify the receiver
 	private void sendDisconnectMessage() {
 		//TODO move this to the socket??
 		int handle = JavaMx.handles.getHandle();
@@ -204,6 +222,6 @@ public class DataOutputStreamImpl extends DataOutputStream {
 
 	protected static String createString(MxAddress address, int port) {
 		return "OutputStreamImpl:" + address.toString() + "("
-				+ Integer.toString(port) + ")";
+		+ Integer.toString(port) + ")";
 	}
 }

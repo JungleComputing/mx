@@ -20,17 +20,17 @@ interface Config {
     static final int BUFFER_SIZE = 64 * 1024;
     static final int REPORTED_BUFFER_SIZE = 4 * 1024;
 
-	static final int DELIVERY_THREAD_BUFFERS = 16;
+	static final int DELIVERY_THREAD_BUFFERS = 500;//10 * 1024;
 	
 	/** Receive queue size of LowLatencyInputStream **/
-	static final int RECEIVE_QUEUE_SIZE = 4;
+	static final int RECEIVE_QUEUE_SIZE = 100;
 	
 	/** Flush queue size of OutputStreams **/
-	static final int FLUSH_QUEUE_SIZE = 2;
+	static final int FLUSH_QUEUE_SIZE = 2; //2 ~= triple buffering
 	
 	/** Amount of poll before a blocking call to complete a request **/ 
-	static final int SPOLLS = 1000; // 5 polls per micro? probably less
-	static final int RPOLLS = 1000; // 5 polls per micro? probably less
+	static final int SPOLLS = 800; // 5 polls per micro? probably less
+	static final int RPOLLS = 800; // 5 polls per micro? probably less
 
-	static final int ACK_INTERVAL = 5;
+	static final int SYNC_RATE = RECEIVE_QUEUE_SIZE * 2;
 }

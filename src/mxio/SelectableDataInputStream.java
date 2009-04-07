@@ -11,9 +11,6 @@ public class SelectableDataInputStream extends DataInputStream {
 	
 	private static final Logger logger = LoggerFactory
     .getLogger(SelectableDataInputStream.class);
-
-	private static final int ACK_INTERVAL = Config.ACK_INTERVAL;
-	private int ackCounter = 0;
 		
 	private	LinkedBlockingQueue<MxReceiveBuffer> queue;
 

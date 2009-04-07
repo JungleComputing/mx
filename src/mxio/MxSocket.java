@@ -87,13 +87,12 @@ public class MxSocket implements Runnable {
 
 		ThreadPool.createNew(this, "MxSocket " + endpointNumber + " - "
 				+ sendEndpointNumber);
-
-
 	}
 
 	public Connection connect(MxAddress target, byte[] descriptor, long timeout) 
 	throws MxException {
 		// TODO catch exceptions, forward them
+		// FIXME timeout
 		int msgSize;
 
 		connectBuf.clear();
@@ -106,18 +105,23 @@ public class MxSocket implements Runnable {
 
 		int link = lookup(target);
 		if(link == -1) {
-			return null;
+			throw new MxException("MX Address lookup failed");
 		}
 
 		// send request
 		connectBuf.flip();
-		JavaMx.sendSynchronous(connectBuf, connectBuf.position(), connectBuf
+		JavaMx.send(connectBuf, connectBuf.position(), connectBuf
 				.remaining(), sendEndpointNumber, link, connectHandle,
 				Matching.PROTOCOL_CONNECT);
-		msgSize = JavaMx.wait(sendEndpointNumber, connectHandle); //TODO timeout
-		if (msgSize < 0) {
-			throw new MxException("error");
+		msgSize = JavaMx.test(sendEndpointNumber, connectHandle, 100); //TODO timeout
+		while (msgSize < 0) {
+			msgSize = JavaMx.wait(sendEndpointNumber, connectHandle, 100); //TODO timeout
+			// did this loop fix the 'remote peer disconnected' bug?? NO
+//			System.out.print("^");
 		}
+//		if (msgSize < 0) {
+//			throw new MxException("error");
+//		}
 
 		// read reply
 		connectBuf.clear();

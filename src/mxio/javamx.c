@@ -8,7 +8,7 @@
 #include "mx_extensions.h"
 
 
-#define MAX_ENDPOINTS 4
+#define MAX_ENDPOINTS 8
 mx_endpoint_t endpoints[MAX_ENDPOINTS];   //[MX_MAX_ENDPOINTS];  //TODO use this
 //mx_endpoint_t myEndpoint = NULL;
 int initialized = 0;
@@ -25,6 +25,19 @@ void printAddress(const mx_endpoint_addr_t* addr) {
 	mx_decompose_endpoint_addr(*addr, &nic, &endpoint);
 	//fprintf(stderr, "nic: %0" PRIx64 ", endpoint: %0" PRIx32 "\n", nic, endpoint);
 }
+
+mx_unexp_handler_action_t
+handler(void * context,
+    mx_endpoint_addr_t source,
+    uint64_t match_info,
+    uint32_t length,
+    void * data_if_available) {
+	fprintf(stderr, "unexp message received: \n");
+	fprintf(stderr, "matching: %0" PRIx64 "\n", match_info);
+	fprintf(stderr, "length: %0" PRIu32 "\n", length);
+	return MX_RECV_CONTINUE;
+}
+
 
 
 /* init() */
@@ -107,6 +120,15 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_newEndpoint
 		throwException(env, mx_strerror(rc));
 		return -1;
 	}
+
+	// register unexp handler
+	/*rc  = mx_register_unexp_handler(endpoints[result], &handler, NULL);
+	if(rc != MX_SUCCESS) {
+		endpoints[result] = NULL;
+		throwException(env, mx_strerror(rc));
+		return -1;
+	}*/
+
 	return (jint)result;
 }
 
@@ -211,7 +233,7 @@ JNIEXPORT jboolean JNICALL Java_mxio_JavaMx_connect__IIJIIJ
 	/* now connect to the client */
 	rc = mx_connect(endpoints[endpointId], targetNicId, targetEndpointId, filter, (uint32_t)timeout, address);
 	if(rc != MX_SUCCESS) {
-		//throwException(env, mx_strerror(rc));
+		throwException(env, mx_strerror(rc));
 		return JNI_FALSE;
 	}
 	//fprintf(stderr, "connected to:\n");
@@ -556,7 +578,7 @@ JNIEXPORT jint JNICALL Java_mxio_JavaMx_wait__IIJ
 		return -1;
 	}
 
-	// TODO this block of code doesn't look coorrect to me
+	// TODO this block of code doesn't look correct to me
 	if(status.code != MX_STATUS_SUCCESS) {
 		// some kind of error occured
 		throwException(env, mx_strstatus(status.code));

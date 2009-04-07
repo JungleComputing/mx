@@ -11,9 +11,6 @@ public class LowLatencyDataInputStream extends DataInputStream {
 	private static final Logger logger = LoggerFactory
     .getLogger(LowLatencyDataInputStream.class);
 	
-	private static final int ACK_INTERVAL = Config.ACK_INTERVAL;
-	private int ackCounter = 0;
-	
 	private	ArrayBlockingQueue<MxReceiveBuffer> queue;
 
 	protected LowLatencyDataInputStream(MxSocket socket, MxAddress source,
