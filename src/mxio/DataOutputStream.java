@@ -6,6 +6,8 @@ import java.nio.BufferOverflowException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.touchgraph.graphlayout.TGPanel.SwitchSelectUI;
+
 public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 	
 	private static final Logger logger = LoggerFactory
@@ -18,19 +20,28 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 
 	boolean closed = false;
 	boolean receiverClosed = false;
+	int sequenceNo = 1;
 	
 	
 
 	MulticastDataOutputStream mcStream = null;
 
 	protected DataOutputStream() {
-		buffer = MxSendBuffer.get();
+		nextBuffer();
 	}
 
 	public boolean isOpen() {
 		return !closed;
 	}
 
+	void nextBuffer() {
+		buffer = MxSendBuffer.get();
+		if(sequenceNo <= Config.SEQ_STEPS) {
+			buffer.setLimit(sequenceNo * Config.SEQ_SIZE * Config.SEQ_MULTIPLIER);
+			sequenceNo++;
+		}
+	}
+	
 	// closes all underlying connections
 	@Override
 	public void close() throws IOException {
@@ -80,7 +91,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			//huh, cannot happen. At the other hand, still nothing is wrong with this channel 
 			return;
 		}
-		buffer = MxSendBuffer.get();
+		nextBuffer();
 	}
 
 	protected void send() throws IOException {
@@ -91,7 +102,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 		bytesWritten += doSend(buffer);
 
 		// get a new buffer
-		buffer = MxSendBuffer.get();
+		nextBuffer();
 		flushed = false;
 	}
 
@@ -110,6 +121,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 		}
 		doFlush();
 		flushed = true;
+		sequenceNo = 1;
 	}
 
 	public int bufferSize() {
@@ -494,9 +506,9 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 	
 	void startupSend() throws IOException {
 //		if(flushed && buffer.payload.position() > Config.START_BUFFER_SIZE) {
-		if(buffer.payload.position() > Config.START_BUFFER_SIZE) {
-			send();
-		}
+//		if(buffer.payload.position() > Config.START_BUFFER_SIZE) {
+//			send();
+//		}
 	}
 	
 }

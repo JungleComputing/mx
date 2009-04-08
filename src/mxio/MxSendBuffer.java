@@ -217,6 +217,10 @@ final class MxSendBuffer implements Config {
 		return payload.position();
 	}
 	
+	void setLimit(int limit) {
+		payload.limit(limit);
+	}
+	
 	boolean isEmpty() {
 		return payload.position() == 0;
 	}

@@ -308,7 +308,8 @@ implements MxListener {
 			return new MxDefaultReceivePort(this, tp, nm, u, cU, props);
 //			return new MxSelectingReceivePort(this, tp, nm, u, cU, props);
 		} else {
-			return new MxSelectingReceivePort(this, tp, nm, u, cU, props);	
+			return new MxSelectingReceivePort(this, tp, nm, u, cU, props);
+//			return new MxDefaultReceivePort(this, tp, nm, u, cU, props);
 		}
 	}
 
