@@ -15,10 +15,14 @@ interface Config {
 	static final int BYTEORDER_BYTE = 0;
 	static final int PORT_BYTE = 4;
 			
+	static final int SEQ_SIZE = 1 * 1024;
+	static final int[] SEQ_MULTIPLIER = { 12, 24};
+	static final int SEQ_STEPS = SEQ_MULTIPLIER.length;
+	
     /** Byte buffer size used. **/
-	static final int START_BUFFER_SIZE = 4 * 1024;
+    static final int START_BUFFER_SIZE = 9 * 1024;
     static final int BUFFER_SIZE = 64 * 1024;
-    static final int REPORTED_BUFFER_SIZE = 4 * 1024;
+    static final int REPORTED_BUFFER_SIZE = 5 * 1024;
 
 	static final int DELIVERY_THREAD_BUFFERS = 500;//10 * 1024;
 	
@@ -29,12 +33,8 @@ interface Config {
 	static final int FLUSH_QUEUE_SIZE = 4; //2 ~= triple buffering
 	
 	/** Amount of poll before a blocking call to complete a request **/ 
-	static final int SPOLLS = 800; // 5 polls per micro? probably less
-	static final int RPOLLS = 800; // 5 polls per micro? probably less
+	static final int SPOLLS = 1500; // 5 polls per micro? probably less
+	static final int RPOLLS = 1500; // 5 polls per micro? probably less
 
 	static final int SYNC_RATE = RECEIVE_QUEUE_SIZE * 2;
-	
-	static final int SEQ_SIZE = 4 * 1024;
-	static final int SEQ_STEPS = 2;
-	static final int SEQ_MULTIPLIER = 3;
 }

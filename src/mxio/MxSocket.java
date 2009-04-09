@@ -104,13 +104,23 @@ public class MxSocket implements Runnable {
 		}
 
 		int link = lookup(target);
+		int i = 0;
+		while(link == -1 && i < 10) {
+			i++;
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				// ignore
+			}
+			link = lookup(target);
+		}
 		if(link == -1) {
 			throw new MxException("MX Address lookup failed");
 		}
-
+		
 		// send request
 		connectBuf.flip();
-		JavaMx.send(connectBuf, connectBuf.position(), connectBuf
+		JavaMx.sendSynchronous(connectBuf, connectBuf.position(), connectBuf
 				.remaining(), sendEndpointNumber, link, connectHandle,
 				Matching.PROTOCOL_CONNECT);
 		msgSize = JavaMx.test(sendEndpointNumber, connectHandle, 100); //TODO timeout

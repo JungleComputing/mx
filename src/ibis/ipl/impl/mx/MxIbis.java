@@ -60,7 +60,6 @@ implements MxListener {
 
 		this.properties.checkProperties("ibis.ipl.impl.mx.",
 				new String[] {"ibis.ipl.impl.mx.mx"}, null, true);
-
 	}
 
 	protected byte[] getData() throws IOException {

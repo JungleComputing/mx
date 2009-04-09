@@ -20,7 +20,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 
 	boolean closed = false;
 	boolean receiverClosed = false;
-	int sequenceNo = 1;
+	int sequenceNo = 0;
 	
 	
 
@@ -36,8 +36,8 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 
 	void nextBuffer() {
 		buffer = MxSendBuffer.get();
-		if(sequenceNo <= Config.SEQ_STEPS) {
-			buffer.setLimit(sequenceNo * Config.SEQ_SIZE * Config.SEQ_MULTIPLIER);
+		if(sequenceNo < Config.SEQ_STEPS) {
+			buffer.setLimit(Config.SEQ_SIZE * Config.SEQ_MULTIPLIER[sequenceNo]);
 			sequenceNo++;
 		}
 	}
@@ -121,7 +121,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 		}
 		doFlush();
 		flushed = true;
-		sequenceNo = 1;
+		sequenceNo = 0;
 	}
 
 	public int bufferSize() {
@@ -506,9 +506,9 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 	
 	void startupSend() throws IOException {
 //		if(flushed && buffer.payload.position() > Config.START_BUFFER_SIZE) {
-//		if(buffer.payload.position() > Config.START_BUFFER_SIZE) {
-//			send();
-//		}
+		if(buffer.payload.position() > Config.START_BUFFER_SIZE) {
+			send();
+		}
 	}
 	
 }
