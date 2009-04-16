@@ -47,6 +47,7 @@ public final class MxIbisStarter extends ibis.ipl.IbisStarter {
 			PortType.CONNECTION_MANY_TO_ONE,
 			PortType.CONNECTION_ONE_TO_MANY,
 			PortType.CONNECTION_ONE_TO_ONE,
+			PortType.CONNECTION_MANY_TO_MANY,
 			PortType.RECEIVE_POLL,
 			PortType.RECEIVE_AUTO_UPCALLS,
 			PortType.RECEIVE_EXPLICIT,

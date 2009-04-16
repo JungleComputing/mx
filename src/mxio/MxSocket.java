@@ -88,7 +88,7 @@ public class MxSocket implements Runnable {
 				+ sendEndpointNumber);
 	}
 
-	public Connection connect(MxAddress target, byte[] descriptor, long timeout) 
+	public synchronized Connection connect(MxAddress target, byte[] descriptor, long timeout) 
 	throws MxException {
 		long deadline = Long.MAX_VALUE;
 		if(timeout > 0) {
