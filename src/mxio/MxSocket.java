@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory;
 
 public class MxSocket implements Runnable {
 
+	ReentrantLock connectLock = new ReentrantLock();
+	
 	private static final Logger logger = LoggerFactory
 	.getLogger(MxSocket.class);
 
@@ -88,8 +90,11 @@ public class MxSocket implements Runnable {
 				+ sendEndpointNumber);
 	}
 
-	public synchronized Connection connect(MxAddress target, byte[] descriptor, long timeout) 
+	public Connection connect(MxAddress target, byte[] descriptor, long timeout) 
 	throws MxException {
+		try {
+			connectLock.lock();
+
 		long deadline = Long.MAX_VALUE;
 		if(timeout > 0) {
 			deadline = System.currentTimeMillis() + timeout;
@@ -168,6 +173,9 @@ public class MxSocket implements Runnable {
 			return new Connection(null, reply, replymsg);
 		default:
 			throw new MxException("invalid reply");
+		}
+		} finally {
+			connectLock.unlock();
 		}
 	}
 

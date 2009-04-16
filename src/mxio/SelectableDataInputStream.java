@@ -14,9 +14,9 @@ public class SelectableDataInputStream extends DataInputStream {
 		
 	private	LinkedBlockingQueue<MxReceiveBuffer> queue;
 
-	private volatile boolean inSelector = false;
+	private boolean inSelector = false;
 
-	private volatile Selector selector;
+	private Selector selector;
 	
 	protected SelectableDataInputStream(MxSocket socket, MxAddress source,
 			int endpointNumber, long matchData) throws IOException {
@@ -54,7 +54,7 @@ public class SelectableDataInputStream extends DataInputStream {
 		while(buffer == null) {
 			if(senderClosed) {
 				try {
-					buffer = queue.poll(100, TimeUnit.MILLISECONDS);
+					buffer = queue.poll(1000, TimeUnit.MILLISECONDS);
 				} catch (InterruptedException e) {
 					// TODO ignore
 				}
@@ -72,12 +72,6 @@ public class SelectableDataInputStream extends DataInputStream {
 				}	
 			}
 		}
-		/*
-		if(++ackCounter >= ACK_INTERVAL) {
-			ackCounter = 0;
-			socket.sendAck(this);
-		}
-		*/
 		return buffer;
 	}
 	
