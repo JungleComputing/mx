@@ -88,7 +88,7 @@ final class MxMulticastSendPort extends MxSendPort {
 			long timeoutMillis, boolean fillTimeout) throws IOException {
 
 		DataOutputStream os = 
-			((MxIbis) ibis).connect(this, receiver, (int) timeoutMillis,
+			((MxIbis) ibis).connect(this, receiver, timeoutMillis,
 					fillTimeout);
 		Conn c = new Conn(os, this, receiver);
 		if (out != null) {

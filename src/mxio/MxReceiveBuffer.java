@@ -7,10 +7,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-final class MxReceiveBuffer {
-
-
-	static final int BUFFER_CACHE_SIZE = 128;
+final class MxReceiveBuffer implements Config {
 
 //	static java.util.concurrent.LinkedBlockingDeque<ReceiveBuffer> cache = new LinkedBlockingDeque<ReceiveBuffer>(BUFFER_CACHE_SIZE);
 	
@@ -153,21 +150,14 @@ final class MxReceiveBuffer {
 			int msgSize = -1;
 			
 			if(poll) {
-//				long nt = - System.nanoTime();
-				/*
-				 * int i = 0;
-				while(msgSize < 0 && i < Config.POLLS) {
+				msgSize = JavaMx.test(endpointNumber, myHandle);
+				int i = 1;
+				while(msgSize < 0 && i < Config.RPOLLS) {
+					Thread.yield();
 					msgSize = JavaMx.test(endpointNumber, myHandle);
 					i++;
-				}*/
-				msgSize = JavaMx.test(endpointNumber, myHandle, Config.RPOLLS);
-//				nt += System.nanoTime();
-//				polls +=i;
-//				ntime += nt;
-//				if(polls > 1000000) {
-//					System.out.println("RB: " + polls + " polls took " + ((double)ntime/1000000) + " millis");
-//					ntime = polls = 0;
-//				}
+				}
+				//msgSize = JavaMx.test(endpointNumber, myHandle, Config.RPOLLS);
 			}
 			if(msgSize < 0) {
 //				System.out.println("poll miss");

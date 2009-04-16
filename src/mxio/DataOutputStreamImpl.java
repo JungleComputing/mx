@@ -36,22 +36,27 @@ public class DataOutputStreamImpl extends DataOutputStream {
 			destroy();
 		}
 
-		MxSendBuffer flushHead() throws MxException {
+		void flushHead() throws MxException {
 			if (elements == 0) {
-				return null;
+				return;
 			}
 
 			MxSendBuffer buf = queue[head];
-
+			if(buf == null) {
+				throw new Error("got null buf from queue");
+			}
+			queue[head] = null;
 			int msgSize = -1;
-			/*
-			int i = 0;
-			while(msgSize < 0 && i < Config.POLLS) {
+
+			msgSize = JavaMx.test(endpointNumber, handles[head]);
+			int i = 1;
+			while(msgSize < 0 && i < Config.SPOLLS) {
+				Thread.yield();
 				msgSize = JavaMx.test(endpointNumber, handles[head]);
 				i++;
 			}
-			 */
-			msgSize = JavaMx.test(endpointNumber, handles[head], Config.SPOLLS);
+
+			//msgSize = JavaMx.test(endpointNumber, handles[head], Config.SPOLLS);
 
 			while(msgSize < 0) {
 				msgSize = JavaMx.wait(endpointNumber, handles[head]);
@@ -67,7 +72,8 @@ public class DataOutputStreamImpl extends DataOutputStream {
 				//error
 				throw new Error("send error 2b");
 			}
-			return buf;
+			MxSendBuffer.recycle(buf);
+			return;
 		}
 
 		boolean doSend(MxSendBuffer buffer, boolean synchronous) throws MxException {
@@ -141,37 +147,28 @@ public class DataOutputStreamImpl extends DataOutputStream {
 		buffer.setPort(port);
 		long size = buffer.remaining();
 		
-		sync++;
 		boolean sendSync = false;
+		sync++;
 		if(sync == syncRate) {
-			sync =0;
+			sync = 0;
 			sendSync = true;
 		}
 		
 		while(!flushQueue.doSend(buffer, sendSync)) {
-			MxSendBuffer flushedBuf = flushHead();
-			if(flushedBuf != null) {
-				MxSendBuffer.recycle(flushedBuf);
-			}
+			flushHead();
 		}
 		
 		return size;
 	}
 
 	void doFlush() throws IOException {
-		MxSendBuffer buffer;	
-
 		while(!flushQueue.isEmpty()) {
-			buffer = flushHead();
-			if(buffer != null) {
-				MxSendBuffer.recycle(buffer);
-			}
+			flushHead();
 		}
-		//fragmentNumber = 0;
 	}
 
-	MxSendBuffer flushHead() throws MxException {
-		return flushQueue.flushHead();
+	void flushHead() throws MxException {
+		flushQueue.flushHead();
 	}
 
 

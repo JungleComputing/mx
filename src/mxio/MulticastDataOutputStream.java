@@ -35,10 +35,10 @@ public class MulticastDataOutputStream extends DataOutputStream {
 			connections[0].doSend(buffer);
 		} else {
 			MxSendBuffer[] copies = MxSendBuffer.replicate(buffer, nrOfConnections);
+			MxSendBuffer.recycle(buffer);
 			for(int i = 0; i < nrOfConnections; i++) {
 				try {
 				connections[i].bytesWritten += connections[i].doSend(copies[i]);
-				MxSendBuffer.recycle(buffer);
 				} catch (IOException e) {
 					if(cwe == null) {
 						cwe = new CollectedWriteException();

@@ -83,6 +83,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 
 		MxSendBuffer.recycle(buffer);
 		buffer = null;
+		sequenceNo = 0;
 		mcStream = stream;
 	}
 
@@ -92,6 +93,7 @@ public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 			return;
 		}
 		nextBuffer();
+		sequenceNo = 0;
 	}
 
 	protected void send() throws IOException {

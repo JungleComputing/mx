@@ -16,7 +16,7 @@ interface Config {
 	static final int PORT_BYTE = 4;
 			
 	static final int SEQ_SIZE = 1 * 1024;
-	static final int[] SEQ_MULTIPLIER = { 12, 24};
+	static final int[] SEQ_MULTIPLIER = {9,24};
 	static final int SEQ_STEPS = SEQ_MULTIPLIER.length;
 	
     /** Byte buffer size used. **/
@@ -24,17 +24,20 @@ interface Config {
     static final int BUFFER_SIZE = 64 * 1024;
     static final int REPORTED_BUFFER_SIZE = 5 * 1024;
 
-	static final int DELIVERY_THREAD_BUFFERS = 500;//10 * 1024;
+	static final int DELIVERY_THREAD_BUFFERS = 32;
 	
 	/** Receive queue size of LowLatencyInputStream **/
-	static final int RECEIVE_QUEUE_SIZE = 100;
+	static final int RECEIVE_QUEUE_SIZE = 16;
 	
 	/** Flush queue size of OutputStreams **/
 	static final int FLUSH_QUEUE_SIZE = 4; //2 ~= triple buffering
 	
 	/** Amount of poll before a blocking call to complete a request **/ 
-	static final int SPOLLS = 1500; // 5 polls per micro? probably less
-	static final int RPOLLS = 1500; // 5 polls per micro? probably less
+	static final int SPOLLS = 100; // 5 polls per micro? probably less
+	static final int RPOLLS = 100; // 5 polls per micro? probably less
 
-	static final int SYNC_RATE = RECEIVE_QUEUE_SIZE * 2;
+	static final int SYNC_RATE = 600;//RECEIVE_QUEUE_SIZE * 2;
+	
+	
+	static final int BUFFER_CACHE_SIZE = 64;
 }

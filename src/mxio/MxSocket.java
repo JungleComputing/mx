@@ -8,7 +8,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
@@ -91,6 +90,10 @@ public class MxSocket implements Runnable {
 
 	public Connection connect(MxAddress target, byte[] descriptor, long timeout) 
 	throws MxException {
+		long deadline = Long.MAX_VALUE;
+		if(timeout > 0) {
+			deadline = System.currentTimeMillis() + timeout;
+		}
 		// TODO catch exceptions, forward them
 		// FIXME timeout
 		int msgSize;
@@ -104,18 +107,9 @@ public class MxSocket implements Runnable {
 		}
 
 		int link = lookup(target);
-		int i = 0;
-		while(link == -1 && i < 10) {
-			i++;
-			try {
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-				// ignore
-			}
-			link = lookup(target);
-		}
+		
 		if(link == -1) {
-			throw new MxException("MX Address lookup failed");
+			return null;
 		}
 		
 		// send request
@@ -123,21 +117,35 @@ public class MxSocket implements Runnable {
 		JavaMx.sendSynchronous(connectBuf, connectBuf.position(), connectBuf
 				.remaining(), sendEndpointNumber, link, connectHandle,
 				Matching.PROTOCOL_CONNECT);
-		msgSize = JavaMx.test(sendEndpointNumber, connectHandle, 100); //TODO timeout
-		while (msgSize < 0) {
-			msgSize = JavaMx.wait(sendEndpointNumber, connectHandle, 100); //TODO timeout
-			// did this loop fix the 'remote peer disconnected' bug?? NO
-//			System.out.print("^");
+		try {
+			msgSize = JavaMx.test(sendEndpointNumber, connectHandle, 100);
+			while (msgSize < 0) {
+				long t;
+				if(deadline == Long.MAX_VALUE) {
+					t = Long.MAX_VALUE;
+				} else {
+					 t = deadline - System.currentTimeMillis();
+				}
+				
+				if(t > 0) {
+					msgSize = JavaMx.wait(sendEndpointNumber, connectHandle, t);
+				} else {
+					JavaMx.forget(sendEndpointNumber, connectHandle);
+					return null;
+				}
+			}
+		} catch (MxException e) {
+			if(logger.isDebugEnabled()) {
+				logger.debug("connect(): exception - " + e.getCause());
+			}
+			return null;
 		}
-//		if (msgSize < 0) {
-//			throw new MxException("error");
-//		}
 
 		// read reply
 		connectBuf.clear();
 		JavaMx.recv(connectBuf, connectBuf.position(), connectBuf.remaining(),
 				endpointNumber, connectHandle, Matching.PROTOCOL_CONNECT_REPLY);
-		msgSize = JavaMx.wait(endpointNumber, connectHandle); //TODO timeout
+		msgSize = JavaMx.wait(endpointNumber, connectHandle); // TODO we should always get a reply?
 		if (msgSize < 0) {
 			throw new MxException("error");
 		}
@@ -324,12 +332,21 @@ public class MxSocket implements Runnable {
 		// TODO read request
 		switch (request.status) {
 		case ConnectionRequest.ACCEPTED:
+			if(logger.isDebugEnabled()) {
+				logger.debug("listen(): ACCEPT");
+			}
 			// accept() already sent the reply message
 			return;
 		case ConnectionRequest.PENDING:
 			// user did not accept it, so we reject it
+			if(logger.isDebugEnabled()) {
+				logger.debug("listen(): PENDING");
+			}
 			request.reject();
 		case ConnectionRequest.REJECTED:
+			if(logger.isDebugEnabled()) {
+				logger.debug("listen(): REJECT");
+			}
 			int link = lookup(source);
 			if(link == -1) {
 				return;
@@ -487,7 +504,7 @@ public class MxSocket implements Runnable {
 		}
 	}
 
-	public void close() {
+	public synchronized void close() {
 		closing = true;
 		if(deliveryThread != null) {
 			deliveryThread.close();
@@ -579,7 +596,7 @@ public class MxSocket implements Runnable {
 		return myAddress;
 	}
 
-	int lookup(MxAddress address) {
+	synchronized int lookup(MxAddress address) {
 		Integer link = links.get(address);
 		if (link == null) {
 			try {

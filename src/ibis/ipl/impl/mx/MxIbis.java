@@ -86,7 +86,7 @@ implements MxListener {
 	 */
 
 	DataOutputStream connect(MxSendPort sp, ibis.ipl.impl.ReceivePortIdentifier rip,
-			int timeout, boolean fillTimeout) throws IOException {
+			long timeout, boolean fillTimeout) throws IOException {
 
 		IbisIdentifier id = (IbisIdentifier) rip.ibisIdentifier();
 		String name = rip.name();

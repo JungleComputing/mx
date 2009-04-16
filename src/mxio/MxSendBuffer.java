@@ -9,8 +9,6 @@ import org.slf4j.LoggerFactory;
 
 final class MxSendBuffer implements Config {
 
-	static final int BUFFER_CACHE_SIZE = 128;
-
 	//	static LinkedBlockingDeque<SendBuffer> cache = new LinkedBlockingDeque<SendBuffer>(BUFFER_CACHE_SIZE);
 	static MxSendBuffer[] cache = new MxSendBuffer[BUFFER_CACHE_SIZE];
 	static int current = 0;
@@ -33,15 +31,16 @@ final class MxSendBuffer implements Config {
 		//		SendBuffer result = cache.pollLast();
 		if (result != null) {
 			if (logger.isInfoEnabled()) {
-//				logger.info("SendBuffer: got empty buffer from cache");
+				logger.info("SendBuffer: got empty buffer from cache");
 			}
 			result.clear();
 			return result;
 		}
+		result = new MxSendBuffer();
 		if (logger.isInfoEnabled()) {
 			logger.info("SendBuffer: got new empty buffer");
 		}
-		return new MxSendBuffer();
+		return result;
 	}
 
 	/**
@@ -50,9 +49,14 @@ final class MxSendBuffer implements Config {
 	static void recycle(MxSendBuffer buffer) {
 		if (buffer.parent == null) {
 			synchronized(buffer) {
-				if (buffer.copies != 0) {
+				if (buffer.copies > 0) {
 					buffer.copies--;
+					if (logger.isInfoEnabled()) {
+						logger.info("SendBuffer: Children of parent buffer still alive");
+					}
 					return;
+				} else if (buffer.copies < 0) {
+					throw new Error("recycled buffer more than once!");
 				} else {
 					lock.lock();	
 					if(current >= BUFFER_CACHE_SIZE) {
@@ -64,19 +68,16 @@ final class MxSendBuffer implements Config {
 						cache[current] = buffer;
 						current++;
 						if (logger.isInfoEnabled()) {
-//							logger.info("SendBuffer: recycled buffer");
+							logger.info("SendBuffer: recycled buffer");
 						}
 					}
 					lock.unlock();
 				}
 			}
 		} else {
-			if (logger.isInfoEnabled()) {
-//				logger.info("SendBuffer: recycling child buffer");
-			}
 			synchronized(buffer.parent) {
 				buffer.parent.copies--;
-				if (buffer.parent.copies < 0) {
+				if (buffer.parent.copies == -1) {
 					buffer.parent.copies = 0;
 					lock.lock();
 					if(current >= BUFFER_CACHE_SIZE) {
@@ -89,10 +90,13 @@ final class MxSendBuffer implements Config {
 						cache[current] = buffer.parent;
 						current++;
 						if (logger.isInfoEnabled()) {
-//							logger.info("SendBuffer: recycled parent buffer");
+							logger.info("SendBuffer: recycled parent buffer");
 						}
 					}
 					lock.unlock();
+				}
+				if (buffer.parent.copies < -1) {
+					throw new Error("recycled parent buffer too often!");
 				}
 			}
 		}
@@ -108,8 +112,8 @@ final class MxSendBuffer implements Config {
 			result[i] = new MxSendBuffer(original);
 		}
 		original.copies += copies;
-		if(logger.isDebugEnabled()) {
-			logger.debug("" + copies + " Copies of the SendBuffer created");
+		if(logger.isInfoEnabled()) {
+			logger.info("" + copies + " Copies of the SendBuffer created");
 		}
 
 		return result;
@@ -144,10 +148,10 @@ final class MxSendBuffer implements Config {
 	/**
 	 * Copy constructor. Actually only copies byteBuffers;
 	 */
-	MxSendBuffer(MxSendBuffer parent) {
+	MxSendBuffer(MxSendBuffer original) {
 		ByteOrder order = ByteOrder.nativeOrder();
 
-		this.parent = parent;
+		parent = original;
 		payload = parent.payload.duplicate();
 		header = new MxIOBuffer(Config.SIZEOF_HEADER).order(
 				order);
