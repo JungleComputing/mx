@@ -6,8 +6,6 @@ import java.nio.BufferOverflowException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.touchgraph.graphlayout.TGPanel.SwitchSelectUI;
-
 public abstract class DataOutputStream extends ibis.io.DataOutputStream {
 	
 	private static final Logger logger = LoggerFactory

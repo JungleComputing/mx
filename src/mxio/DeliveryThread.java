@@ -30,7 +30,9 @@ public final class DeliveryThread implements Runnable, Config {
 		this.endpointNumber = socket.endpointNumber();
 		
 		queue = new ArrayBlockingQueue<MxReceiveBuffer>(capacity);
-		
+		if(logger.isDebugEnabled()) {
+			logger.debug("DeliveryThread created");
+		}
 	}
 
 	 void close() {
@@ -65,7 +67,7 @@ public final class DeliveryThread implements Runnable, Config {
 				}
 			} catch (IOException e) {
 				// something is seriously wrong here: we crash
-				// TODO crash a little less drastically 
+				// TODO something a little less drastically 
 				e.printStackTrace();
 				System.exit(1);
 			}

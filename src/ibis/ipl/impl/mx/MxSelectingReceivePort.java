@@ -51,13 +51,19 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 		}
 
 		public void close(Throwable e) {
+			if (logger.isDebugEnabled()) {
+				logger.debug(name + ": closing connection");
+			}
 			super.close(e);
 		}
 
 		protected void upcallCalledFinish() {
-			super.upcallCalledFinish();
 			if (is.attach(selector) == false) {
 				close(new IOException("cannot attach stream to selector"));
+			}
+			super.upcallCalledFinish();
+			if (logger.isDebugEnabled()) {
+				logger.debug(name + ": upcallCalledFinish(): creating new Message broker Thread");
 			}
 			ThreadPool.createNew(port, "Message broker thread: " + port.name);
 		}
@@ -139,6 +145,9 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
                             + ": Got a CLOSE_ALL_CONNECTIONS from "
                             + origin);
                 }
+                if (is.attach(selector) == false) {	
+					throw new IOException("cannot attach stream to selector");
+				}
                 close(null);
                 return true;
             case CLOSE_ONE_CONNECTION:
@@ -160,6 +169,9 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
                     if (logger.isDebugEnabled()) {
                         logger.debug(name + ": disconnect from " + origin);
                     }
+                    if (is.attach(selector) == false) {	
+    					throw new IOException("cannot attach stream to selector");
+    				}
                     close(null);
                 }
                 break;
@@ -176,7 +188,7 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 
 	Selector selector;
 
-	private final boolean no_connectionhandler_thread;
+	private final boolean connectionhandler_thread; // we have one in case of upcalls or polling receives
 
 	private Semaphore readerAccess;
 
@@ -187,17 +199,17 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 		readerAccess = new Semaphore(1);
 		selector = new Selector();
 
-		no_connectionhandler_thread = upcall == null
-		&& !type.hasCapability(PortType.RECEIVE_POLL);
+		connectionhandler_thread = upcall != null
+			|| type.hasCapability(PortType.RECEIVE_POLL);
 		
-		if(!no_connectionhandler_thread) {
+		if(connectionhandler_thread) {
 			ThreadPool.createNew(this, "Message broker thread: " + name);
 		}
 	}
 
 	public void messageArrived(ReadMessage msg) {
 		super.messageArrived(msg);
-		if (! no_connectionhandler_thread && upcall == null) {
+		if (connectionhandler_thread && upcall == null) { //RECEIVE_POLL
 			synchronized(this) {
 				// Wait until the message is finished before starting to
 				// read from the stream again ...
@@ -213,7 +225,7 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 	}
 
 	public ReadMessage getMessage(long timeout) throws IOException {
-		if (no_connectionhandler_thread) {
+		if (!connectionhandler_thread) {
 			// Allow only one reader in.
 
 			try {
@@ -362,7 +374,8 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 			logger.debug("Message broker thread: " + name);
 		}
 		long timeout = 1000;
-		while(!closed || connections().length > 0) {
+//		while(!closed || connections().length > 0) {
+		while(!closed) {
 			if(!NextIOAction(false, timeout)) {
 				return;
 			}
@@ -375,10 +388,6 @@ class MxSelectingReceivePort extends MxReceivePort implements Runnable {
 	 * @return true when thread can be reused
 	 */
 	private boolean NextIOAction(boolean noThread, long timeout) {
-		// TODO Auto-generated method stub
-		if (logger.isDebugEnabled()) {
-			logger.debug("NextIOAction");
-		}
 		DataInputStream is;
 		if(timeout == 0) {
 			is = selector.select();

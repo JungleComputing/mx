@@ -38,6 +38,5 @@ interface Config {
 
 	static final int SYNC_RATE = 600;//RECEIVE_QUEUE_SIZE * 2;
 	
-	
 	static final int BUFFER_CACHE_SIZE = 64;
 }

@@ -6,7 +6,6 @@ final class Matching {
 	static final long PROTOCOL_CONNECT_REPLY =       0x4800000000000000L;
 	static final long PROTOCOL_DISCONNECT =          0x4300000000000000L; // WriteChannel disconnects
 	static final long PROTOCOL_CLOSE =               0x4400000000000000L; // ReadChannel closes
-	static final long PROTOCOL_ACK =                 0x4200000000000000L;
 	static final long PROTOCOL_CONTROL_BIT =         0x4000000000000000L;
 	
 	

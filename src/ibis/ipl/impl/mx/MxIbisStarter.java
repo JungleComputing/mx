@@ -8,7 +8,7 @@ import ibis.ipl.IbisCapabilities;
 import ibis.ipl.IbisFactory;
 import ibis.ipl.PortType;
 import ibis.ipl.RegistryEventHandler;
-import ibis.ipl.registry.Credentials;
+import ibis.ipl.Credentials;
 
 import java.util.ArrayList;
 import java.util.Properties;
@@ -94,10 +94,13 @@ public final class MxIbisStarter extends ibis.ipl.IbisStarter {
 
 	@Override
 	public Ibis startIbis(IbisFactory factory,
-			RegistryEventHandler registryEventHandler, Properties userProperties,
-			IbisCapabilities capabilities, Credentials credentials, PortType[] portTypes, String specifiedSubImplementation) {
-		return new MxIbis(registryEventHandler, capabilities, credentials,
-				portTypes, userProperties, this);
-	}
-
+            RegistryEventHandler registryEventHandler,
+            Properties userProperties, IbisCapabilities capabilities,
+            Credentials credentials, byte[] applicationTag, PortType[] portTypes,
+            String specifiedSubImplementation) {
+        return new MxIbis(registryEventHandler, capabilities,
+                credentials, applicationTag, portTypes, userProperties, this);
+    }
+	
+	
 }

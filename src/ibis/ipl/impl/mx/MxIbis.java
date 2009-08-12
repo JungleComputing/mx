@@ -18,7 +18,7 @@ import ibis.ipl.impl.IbisIdentifier;
 import ibis.ipl.impl.ReceivePort;
 import ibis.ipl.impl.SendPort;
 import ibis.ipl.impl.SendPortIdentifier;
-import ibis.ipl.registry.Credentials;
+import ibis.ipl.Credentials;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -51,12 +51,11 @@ implements MxListener {
 	private HashMap<ibis.ipl.IbisIdentifier, MxAddress> addresses
 	= new HashMap<ibis.ipl.IbisIdentifier, MxAddress>();
 
-
 	public MxIbis(RegistryEventHandler registryEventHandler,
-			IbisCapabilities capabilities, Credentials credentials,
-			PortType[] types, Properties userProperties, IbisStarter starter) {
-		super(registryEventHandler, capabilities, credentials, types,
-				userProperties, starter);
+            IbisCapabilities capabilities, Credentials credentials,
+            byte[] applicationTag, PortType[] types, Properties userProperties, IbisStarter starter) {
+        super(registryEventHandler, capabilities, credentials, applicationTag, types,
+                userProperties, starter);
 
 		this.properties.checkProperties("ibis.ipl.impl.mx.",
 				new String[] {"ibis.ipl.impl.mx.mx"}, null, true);

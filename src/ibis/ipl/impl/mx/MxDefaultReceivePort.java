@@ -270,7 +270,6 @@ class MxDefaultReceivePort extends MxReceivePort {
         req.setReplyMessage(baos.toByteArray());    	
     	
     	if (result == ACCEPTED) {
-    		//TODO selectable
     		DataInputStream is = req.accept(false);
     		if(is == null) {
     			result = DENIED;

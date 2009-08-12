@@ -49,10 +49,7 @@ public class MxSocket implements Runnable {
 	private int endpointNumber;
 	private int sendEndpointNumber;
 	private ByteBuffer listenBuf, connectBuf;
-	private int listenHandle, connectHandle, ackHandle;
-	
-	private ReentrantLock ackLock = new ReentrantLock();
-	private volatile boolean ackInTransfer = false;
+	private int listenHandle, connectHandle;
 
 	DeliveryThread deliveryThread = null;
 
@@ -78,7 +75,6 @@ public class MxSocket implements Runnable {
 		connectBuf = ByteBuffer.allocateDirect(MAX_CONNECT_MSG_SIZE).order(
 				ByteOrder.BIG_ENDIAN);
 		connectHandle = JavaMx.handles.getHandle();
-		ackHandle = JavaMx.handles.getHandle();
 
 		links  = new ConcurrentSkipListMap<MxAddress, Integer>();
 		
@@ -193,12 +189,7 @@ public class MxSocket implements Runnable {
 			}
 			long protocol = Matching.getProtocol(matching);
 
-			if (protocol == Matching.PROTOCOL_ACK) {
-				if (logger.isDebugEnabled()) {
-					logger.debug("ACK message received");
-				}
-				receiveAck(matching);
-			} else if (protocol == Matching.PROTOCOL_DISCONNECT) {
+			if (protocol == Matching.PROTOCOL_DISCONNECT) {
 				if (logger.isDebugEnabled()) {
 					logger.debug("DISCONNECT message received");
 				}
@@ -229,7 +220,7 @@ public class MxSocket implements Runnable {
 				}
 				// unknown control message arrived
 				/* FIXME read it to prevent a potential deadlock by buffer space
-				 * shortage at the MX device when many of such message arrive?
+				 * shortage at the MX device when many of such messages arrive?
 				 */  
 			}
 		}
@@ -237,26 +228,6 @@ public class MxSocket implements Runnable {
 			logger.debug("MxSocket closed");
 		}
 	}
-
-	private void receiveAck(long matchData) {
-		listenBuf.clear();
-		try {
-			JavaMx.recv(listenBuf, listenBuf.position(), listenBuf.remaining(),
-					endpointNumber, listenHandle, matchData);
-			int size = JavaMx.wait(endpointNumber, listenHandle, 1000);
-			if (size < 0) {
-				if(!JavaMx.cancel(endpointNumber, listenHandle)) {
-					size = JavaMx.test(endpointNumber, listenHandle);
-				}
-			}
-		} catch (MxException e) {
-			// TODO Auto-generated catch block
-			// should not go wrong, the message is already waiting for us
-			e.printStackTrace();
-			return;
-		}
-	}
-
 
 	private void receiverClosedConnection(long matchData) {
 		listenBuf.clear();
@@ -568,37 +539,6 @@ public class MxSocket implements Runnable {
 			e.printStackTrace();
 		}
 	}
-
-	protected void sendAck(DataInputStream is) {
-		// should only be called by the InputStream
-		MxAddress target = is.getSource();
-
-		
-		int link = lookup(target);
-		if(link == -1) {
-			return;
-		}
-
-		if(ackLock.tryLock() == false) {
-			return;
-		}
-		try {
-			if(ackInTransfer) {
-				if(JavaMx.test(sendEndpointNumber, ackHandle, 1000) < 0) {
-					JavaMx.forget(sendEndpointNumber, ackHandle);
-				}
-			}
-			JavaMx.send(null, 0, 0, sendEndpointNumber, link, ackHandle,
-					Matching.construct(Matching.PROTOCOL_ACK, is.getPort()));
-			ackInTransfer = true;
-		} catch (MxException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} finally {
-			ackLock.unlock();
-		}
-	}
-
 
 	public MxAddress getMyAddress() {
 		return myAddress;

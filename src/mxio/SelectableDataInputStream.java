@@ -14,7 +14,7 @@ public class SelectableDataInputStream extends DataInputStream {
 		
 	private	LinkedBlockingQueue<MxReceiveBuffer> queue;
 
-	private boolean inSelector = false;
+	private boolean markedAsReady = false;
 
 	private Selector selector;
 	
@@ -34,18 +34,22 @@ public class SelectableDataInputStream extends DataInputStream {
 		while(true) {
 			try {
 				queue.put(buf);
-				synchronized(this) {
-					if(selector != null && inSelector == false) {
-						inSelector = true;
-						selector.ready(this);
-					}
-				}
+				notifySelector();
 				return;
 			} catch (InterruptedException e) {
 				// TODO ignore?
 			}
 		}
 	}
+	
+	private synchronized void notifySelector() {
+		if(selector != null && markedAsReady == false) {
+			markedAsReady = true;
+			selector.ready(this);
+			
+		}
+	}
+	
 	
 	@Override
 	protected MxReceiveBuffer fetchBuffer() throws IOException {
@@ -56,7 +60,7 @@ public class SelectableDataInputStream extends DataInputStream {
 				try {
 					buffer = queue.poll(1000, TimeUnit.MILLISECONDS);
 				} catch (InterruptedException e) {
-					// TODO ignore
+					// ignore
 				}
 				if(buffer == null) {
 					closed = true;
@@ -68,7 +72,7 @@ public class SelectableDataInputStream extends DataInputStream {
 				try {
 					buffer = queue.poll(1000, TimeUnit.MILLISECONDS);
 				} catch (InterruptedException e) {
-					// TODO ignore
+					// ignore
 				}	
 			}
 		}
@@ -83,7 +87,7 @@ public class SelectableDataInputStream extends DataInputStream {
 	
 	protected synchronized void isSelected() {
 		selector = null;
-		inSelector = false;
+		markedAsReady = false;
 	}
 	
 	
@@ -99,17 +103,14 @@ public class SelectableDataInputStream extends DataInputStream {
 			return false;
 		}
 		if(closed || senderClosed) {
-			selector.ready(this);
-			inSelector = true;
+			notifySelector();
 			return true;
 		}
-		
 		if(!queue.isEmpty() || available() > 0)	{
-			selector.ready(this);
-			inSelector = true;
+			notifySelector();
 			return true;
 		} else {
-			inSelector = false;
+			markedAsReady = false;
 			return true;
 		}
 	}
@@ -117,14 +118,13 @@ public class SelectableDataInputStream extends DataInputStream {
 	@Override
 	public synchronized void detach() {
 		selector = null;
-		inSelector = false;
+		markedAsReady = false;
 	}
 
 	@Override
 	public synchronized void close() throws IOException {
-		if(selector != null && inSelector == false) {
-			selector.ready(this);
-			inSelector = true;
+		if(selector != null && markedAsReady == false) {
+			notifySelector();
 		}
 		super.close();
 	}
@@ -133,9 +133,8 @@ public class SelectableDataInputStream extends DataInputStream {
 	protected synchronized void senderClosedConnection() {
 		super.senderClosedConnection();
 		// let the user find out that we are closed
-		if(selector != null && inSelector == false) {
-			selector.ready(this);
-			inSelector = true;
+		if(selector != null && markedAsReady == false) {
+			notifySelector();
 		}
 	}
 
@@ -154,8 +153,8 @@ public class SelectableDataInputStream extends DataInputStream {
 			buffer = queue.poll();
 		}
 		// let the user find out that we are closed
-		if(selector != null && inSelector == false) {
-			selector.ready(this);
+		if(selector != null && markedAsReady == false) {
+			notifySelector();
 		}
 		detach();
 	}

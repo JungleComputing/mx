@@ -61,12 +61,6 @@ public class LowLatencyDataInputStream extends DataInputStream {
 		}
 		// add a new buffer to the receive queue
 		postBuffer();
-		/*
-		if(++ackCounter >= ACK_INTERVAL) {
-			ackCounter = 0;
-			socket.sendAck(this);
-		}
-		*/
 		return buffer;
 	}
 
