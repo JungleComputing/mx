@@ -7,6 +7,7 @@ import ibis.ipl.ConnectionFailedException;
 import ibis.ipl.ConnectionRefusedException;
 import ibis.ipl.ConnectionTimedOutException;
 import ibis.ipl.IbisCapabilities;
+import ibis.ipl.IbisCreationFailedException;
 import ibis.ipl.IbisStarter;
 import ibis.ipl.MessageUpcall;
 import ibis.ipl.PortMismatchException;
@@ -52,11 +53,13 @@ implements MxListener {
 	= new HashMap<ibis.ipl.IbisIdentifier, MxAddress>();
 
 	public MxIbis(RegistryEventHandler registryEventHandler,
-            IbisCapabilities capabilities, Credentials credentials,
-            byte[] applicationTag, PortType[] types, Properties userProperties, IbisStarter starter) {
-        super(registryEventHandler, capabilities, credentials, applicationTag, types,
-                userProperties, starter);
-
+			IbisCapabilities capabilities, Credentials credentials,
+                        byte[] applicationTag, PortType[] types, 
+                        Properties userProperties, IbisStarter starter)         
+            throws IbisCreationFailedException {
+	
+            super(registryEventHandler, capabilities, credentials, 
+                        applicationTag, types, userProperties, starter);
 		this.properties.checkProperties("ibis.ipl.impl.mx.",
 				new String[] {"ibis.ipl.impl.mx.mx"}, null, true);
 	}

@@ -46,6 +46,9 @@ public class DataOutputStreamImpl extends DataOutputStream {
 				throw new Error("got null buf from queue");
 			}
 			queue[head] = null;
+                        
+                       // long t1 = System.nanoTime();
+                        
 			int msgSize = -1;
 
 			msgSize = JavaMx.test(endpointNumber, handles[head]);
@@ -56,6 +59,15 @@ public class DataOutputStreamImpl extends DataOutputStream {
 				i++;
 			}
 
+                        /*
+                        long t2 = System.nanoTime();
+                        
+                        if (msgSize < 0) {                            
+                            System.out.println("No send after " + i + " polls " + (t2-t1));
+                        } else { 
+                            System.out.println("Message send after " + i + " polls " + (t2-t1));
+                        }
+                        */
 			//msgSize = JavaMx.test(endpointNumber, handles[head], Config.SPOLLS);
 
 			while(msgSize < 0) {
@@ -73,6 +85,11 @@ public class DataOutputStreamImpl extends DataOutputStream {
 				throw new Error("send error 2b");
 			}
 			MxSendBuffer.recycle(buf);
+                      /*  
+                        long t3 = System.nanoTime();
+                        
+                        System.out.println("Message send after " + i + " polls+wait " + (t3-t1));
+                      */  
 			return;
 		}
 

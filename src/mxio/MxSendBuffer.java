@@ -26,7 +26,7 @@ final class MxSendBuffer implements Config {
 		if(current != 0) {
 			result = cache[current-1];
 			current--;
-		}
+		} 
 		lock.unlock();
 		//		SendBuffer result = cache.pollLast();
 		if (result != null) {
@@ -36,6 +36,9 @@ final class MxSendBuffer implements Config {
 			result.clear();
 			return result;
 		}
+                
+		//System.out.println("XXXX: Send cache miss");
+                
 		result = new MxSendBuffer();
 		if (logger.isInfoEnabled()) {
 			logger.info("SendBuffer: got new empty buffer");
@@ -60,6 +63,10 @@ final class MxSendBuffer implements Config {
 				} else {
 					lock.lock();	
 					if(current >= BUFFER_CACHE_SIZE) {
+                                            
+                                      //      System.out.println("XXXX: Send cache drop");
+                                                
+                                            
 						if (logger.isInfoEnabled()) {
 							logger.info("SendBuffer: cache full"
 									+ " upon recycling buffer, throwing away");
@@ -81,6 +88,10 @@ final class MxSendBuffer implements Config {
 					buffer.parent.copies = 0;
 					lock.lock();
 					if(current >= BUFFER_CACHE_SIZE) {
+                                            
+                                       //     System.out.println("XXXX: Send cache drop");
+                                            
+                                            
 						if (logger.isInfoEnabled()) {
 							logger.info("SendBuffer: cache full"
 									+ " upon recycling parent of child buffer,"

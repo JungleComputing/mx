@@ -39,6 +39,9 @@ final class MxReceiveBuffer implements Config {
 			result.clear();
 			return result;
 		}
+                
+               // System.out.println("XXXX: Receive cache miss");
+                
 		if (logger.isInfoEnabled()) {
 			logger.info("ReceiveBuffer: got new empty buffer");
 		}
@@ -55,6 +58,9 @@ final class MxReceiveBuffer implements Config {
 				logger.info("ReceiveBuffer: cache full"
 						+ " upon recycling buffer, throwing away");
 			}
+                        
+                    //    System.out.println("XXXX: Receive cache drop");
+                        
 			buffer.destroy();
 		} else {
 			cache[current] = buffer;
@@ -133,21 +139,26 @@ final class MxReceiveBuffer implements Config {
 //	long ntime = 0;
 	
 	boolean finish(long timeout, boolean poll) throws IOException {
+            
+                if(postStatus == FINISHED) {
+                        if (logger.isDebugEnabled()) {
+                                logger.debug("buffer already finished");
+                        }
+                        // message already delivered, just return here
+                        return true;
+                }
+            
 		if(postStatus != POSTED) {
-			if(postStatus == FINISHED) {
-				if (logger.isDebugEnabled()) {
-					logger.debug("buffer already finished");
-				}
-				// message already delivered, just return here
-				return true;
-			} else {
-				throw new IOException("Buffer not posted yet");
-			}
+		    throw new IOException("Buffer not posted yet");
 		}
 		
+                //long time = System.nanoTime();
+                
+                int msgSize = -1;
+                
 		ByteOrder receivedOrder;
 		try {
-			int msgSize = -1;
+			
 			
 			if(poll) {
 				msgSize = JavaMx.test(endpointNumber, myHandle);
@@ -157,6 +168,17 @@ final class MxReceiveBuffer implements Config {
 					msgSize = JavaMx.test(endpointNumber, myHandle);
 					i++;
 				}
+                
+                                /*
+                                long t2 = System.nanoTime();
+                                
+                                
+                                if (msgSize < 0) { 
+                                    System.out.println("Still no message after " + Config.RPOLLS  + " polls " + (t2-time));
+                                } else { 
+                                    System.out.println("Got message after " + i + " polls " + (t2-time) + " " + msgSize);
+                                }*/
+                                
 				//msgSize = JavaMx.test(endpointNumber, myHandle, Config.RPOLLS);
 			}
 			if(msgSize < 0) {
@@ -192,6 +214,11 @@ final class MxReceiveBuffer implements Config {
 	
 		buffer.position(Config.SIZEOF_HEADER);
 
+                /*
+                long t3 = System.nanoTime();
+                      
+                System.out.println("Needed " + (t3-time) + "to receive message " + msgSize);
+                */
 		return true;
 	}
 

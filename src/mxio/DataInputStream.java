@@ -12,7 +12,7 @@ public abstract class DataInputStream extends ibis.io.DataInputStream {
 	private static final Logger logger = LoggerFactory
     .getLogger(DataInputStream.class);
 	
-	public static final int BUFFER_SIZE = mxio.Config.BUFFER_SIZE;
+	//public static final int BUFFER_SIZE = mxio.Config.BUFFER_SIZE;
 	
 	protected boolean closed = false;
 	protected boolean senderClosed = false;
