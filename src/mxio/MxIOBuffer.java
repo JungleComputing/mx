@@ -308,6 +308,9 @@ public class MxIOBuffer {
 	}
 	
 	public MxIOBuffer put(char[] src, int off, int len) {
+		if(src.length < off + len) {
+			throw new ArrayIndexOutOfBoundsException("" + src.length + " < " +  off+len);
+		}
 		int size = len * SizeOf.CHAR;
 		int offset = off * SizeOf.CHAR;
 		if(size > buf.remaining()) {
@@ -320,6 +323,9 @@ public class MxIOBuffer {
 	}
 		
 	public MxIOBuffer put(short[] src, int off, int len) {
+		if(src.length < off + len) {
+			throw new ArrayIndexOutOfBoundsException("" + src.length + " < " +  off+len);
+		}
 		int size = len * SizeOf.SHORT;
 		int offset = off * SizeOf.SHORT;
 		if(size > buf.remaining()) {
@@ -332,6 +338,9 @@ public class MxIOBuffer {
 	}
 	
 	public MxIOBuffer put(int[] src, int off, int len) {
+		if(src.length < off + len) {
+			throw new ArrayIndexOutOfBoundsException("" + src.length + " < " +  off+len);
+		}
 		int size = len * SizeOf.INT;
 		int offset = off * SizeOf.INT;
 		if(size > buf.remaining()) {
@@ -344,6 +353,9 @@ public class MxIOBuffer {
 	}
 	
 	public MxIOBuffer put(long[] src, int off, int len) {
+		if(src.length < off + len) {
+			throw new ArrayIndexOutOfBoundsException("" + src.length + " < " +  off+len);
+		}
 		int size = len * SizeOf.LONG;
 		int offset = off * SizeOf.LONG;
 		if(size > buf.remaining()) {
@@ -356,6 +368,9 @@ public class MxIOBuffer {
 	}
 		
 	public MxIOBuffer put(float[] src, int off, int len) {
+		if(src.length < off + len) {
+			throw new ArrayIndexOutOfBoundsException("" + src.length + " < " +  off+len);
+		}
 		int size = len * SizeOf.FLOAT;
 		int offset = off * SizeOf.FLOAT;
 		if(size > buf.remaining()) {
@@ -368,6 +383,9 @@ public class MxIOBuffer {
 	}
 	
 	public MxIOBuffer put(double[] src, int off, int len) {
+		if(src.length < off + len) {
+			throw new ArrayIndexOutOfBoundsException("" + src.length + " < " +  off+len);
+		}
 		int size = len * SizeOf.DOUBLE;
 		int offset = off * SizeOf.DOUBLE;
 		if(size > buf.remaining()) {
